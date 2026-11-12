@@ -75,7 +75,7 @@ export function buildGeoJsonFeatureCollection(
       },
     },
     metadata: {
-      project: 'KKN Kelompok 4 Desa Kalikayen - Klaster K4 (Portal Informasi Air Desa & AIRLOG)',
+      project: 'KKN Desa Kalikayen - Portal Informasi Air Desa & AIRLOG',
       desa: 'Desa Kalikayen',
       kecamatan: 'Ungaran Timur',
       kabupaten: 'Semarang',

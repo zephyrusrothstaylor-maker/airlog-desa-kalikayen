@@ -212,6 +212,7 @@ export function ConditionModal({
         </div>
 
         <form onSubmit={(e) => void handleSubmit(e)} className="mt-4 space-y-4">
+          {/* Pilih Titik Air */}
           <div>
             <label className="mb-1 block text-xs font-bold text-[#091F5C]">
               Pilih Titik Fasilitas Air
@@ -223,12 +224,13 @@ export function ConditionModal({
             >
               {facilities.map((f) => (
                 <option key={f.id} value={f.id}>
-                  [{f.code}] {f.name} — {f.dusun_name}
+                  [{f.code}] {f.name} • {f.dusun_name}
                 </option>
               ))}
             </select>
           </div>
 
+          {/* 2x2 Touch-Friendly Condition Buttons */}
           <div>
             <label className="mb-1.5 block text-xs font-bold text-[#091F5C]">
               Status Kondisi Fisik Saat Ini *
@@ -259,6 +261,7 @@ export function ConditionModal({
             </div>
           </div>
 
+          {/* Kualitas Air & Musim */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-bold text-[#091F5C]">Kualitas Air</label>
@@ -297,6 +300,7 @@ export function ConditionModal({
             </div>
           </div>
 
+          {/* Catatan Kondisi / Kerusakan */}
           <div>
             <label className="mb-1 block text-xs font-bold text-[#091F5C]">
               Catatan Kondisi Fisik / Detail Kerusakan
@@ -310,6 +314,7 @@ export function ConditionModal({
             />
           </div>
 
+          {/* Foto Dokumentasi Lapangan (Kompresi WebP Otomatis) */}
           <div>
             <label className="mb-1 block text-xs font-bold text-[#091F5C]">
               Foto Kondisi Fisik (Otomatis Kompres WebP &le; 150 KB)
@@ -353,6 +358,7 @@ export function ConditionModal({
             )}
           </div>
 
+          {/* Nama Pemeriksa */}
           <div>
             <label className="mb-1 block text-xs font-bold text-[#091F5C]">
               Nama Pemeriksa (Perangkat Desa / Mahasiswa KKN) *

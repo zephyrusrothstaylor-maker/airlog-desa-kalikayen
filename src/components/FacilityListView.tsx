@@ -91,6 +91,7 @@ export function FacilityListView({
 
   return (
     <div className="min-h-screen bg-[#F9FBFF] pb-28">
+      {/* Top Search & Filter Bar (Reference 1 Middle Screen + Reference 2 Header) */}
       <header className="sticky top-0 z-20 border-b border-[#D0E4FE] bg-[#F9FBFF]/95 px-4 py-4 backdrop-blur-md sm:px-8">
         <div className="mx-auto max-w-5xl space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -131,6 +132,7 @@ export function FacilityListView({
             </div>
           </div>
 
+          {/* Search Pill Bar */}
           <div className="flex flex-col gap-2.5 sm:flex-row">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7096D1]" />
@@ -178,6 +180,7 @@ export function FacilityListView({
             </div>
           </div>
 
+          {/* Dusun & Condition Pill Chips */}
           <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
             <button
               type="button"
@@ -225,6 +228,7 @@ export function FacilityListView({
         </div>
       </header>
 
+      {/* Stacked Horizontal Facility Cards (Reference 1 Middle + Reference 2 List) */}
       <div className="mx-auto max-w-5xl px-4 pt-5 sm:px-8">
         {filteredFacilities.length === 0 ? (
           <div className="rounded-3xl border border-[#D0E4FE] bg-white p-10 text-center shadow-card">
@@ -253,6 +257,7 @@ export function FacilityListView({
                   className="group rounded-3xl border border-[#E8F2FE] bg-white p-4 shadow-card transition hover:border-[#7096D1] sm:p-5"
                 >
                   <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+                    {/* Left Icon + Details */}
                     <div className="flex items-start gap-3.5">
                       <div className="flex h-13 w-13 shrink-0 items-center justify-center rounded-2xl bg-[#E8F2FE] p-3 text-[#334DAF]">
                         <CategoryIcon category={facility.category} className="h-6 w-6" />
@@ -273,9 +278,10 @@ export function FacilityListView({
 
                         <p className="text-xs font-medium text-[#334DAF]">
                           {facility.dusun_name} • RT {facility.rt ?? '-'} / RW {facility.rw ?? '-'}{' '}
-                          {facility.address_detail ? `— ${facility.address_detail}` : ''}
+                          {facility.address_detail ? `• ${facility.address_detail}` : ''}
                         </p>
 
+                        {/* Metadata Pills */}
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-xs text-[#7096D1]">
                           <span className="inline-flex items-center gap-1 font-semibold text-[#091F5C]">
                             <Users className="h-3.5 w-3.5 text-[#334DAF]" />
@@ -321,6 +327,7 @@ export function FacilityListView({
                       </div>
                     </div>
 
+                    {/* Right Action Pill Buttons */}
                     <div className="flex flex-wrap items-center gap-2 sm:flex-col sm:items-end">
                       <button
                         type="button"

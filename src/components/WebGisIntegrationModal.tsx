@@ -41,7 +41,7 @@ export function WebGisIntegrationModal({
   const geojsonApiUrl = `${appOrigin}/api/geojson`;
   const deepLinkReportUrl = `${appOrigin}/?action=lapor`;
 
-  const leafletSnippet = `// Integrasi Layer Real-Time AIRLOG ke WebGIS Leaflet (Klaster K4 Desa Kalikayen)
+  const leafletSnippet = `// Integrasi Layer Real-Time AIRLOG ke WebGIS Leaflet (Desa Kalikayen)
 fetch('${geojsonApiUrl}')
   .then((res) => res.json())
   .then((geojsonData) => {
@@ -100,10 +100,10 @@ fetch('${geojsonApiUrl}')
             </div>
             <div>
               <h2 className="text-base font-extrabold text-[#091F5C]">
-                Integrasi WebGIS K4 & Deployment Mobile (AIRLOG)
+                Integrasi WebGIS & Deployment Mobile (AIRLOG)
               </h2>
               <p className="text-xs text-[#7096D1]">
-                Portal Informasi Air Desa Kalikayen • Klaster K4 (GeoJSON, Leaflet, & APK Android)
+                Portal Informasi Air Desa Kalikayen • GeoJSON, Leaflet & APK Android
               </p>
             </div>
           </div>
@@ -129,7 +129,7 @@ fetch('${geojsonApiUrl}')
             }`}
           >
             <Globe className="h-4 w-4" />
-            1. Integrasi WebGIS (K4)
+            1. Integrasi WebGIS
           </button>
           <button
             type="button"
@@ -147,18 +147,18 @@ fetch('${geojsonApiUrl}')
 
         {activeSection === 'webgis' ? (
           <div className="mt-4 space-y-4 text-xs text-[#091F5C]">
-            {/* 1. Export GeoJSON File for Haliza / QGIS / GitHub Pages */}
+            {/* 1. Export GeoJSON File for WebGIS / QGIS / GitHub Pages */}
             <div className="rounded-2xl border border-[#D0E4FE] bg-white p-4 shadow-xs">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <span className="inline-block rounded-full bg-[#D0E4FE] px-2.5 py-0.5 text-[10px] font-extrabold text-[#091F5C]">
-                    Standar Data Spasial K1 & K4 (WGS84 / EPSG:4326)
+                    Standar Data Spasial WGS84 (EPSG:4326)
                   </span>
                   <h3 className="mt-1 text-sm font-extrabold text-[#091F5C]">
                     A. Unduh Layer GeoJSON untuk WebGIS & QGIS ({facilityCount} Titik)
                   </h3>
                   <p className="mt-0.5 text-[11px] text-[#7096D1]">
-                    Format <code className="font-mono font-bold text-[#334DAF]">.geojson</code> siap pakai untuk diserahkan ke tim penyusun layer WebGIS (Haliza, Afidatun, Arini) maupun diolah di QGIS/GeoPackage (K1).
+                    Format <code className="font-mono font-bold text-[#334DAF]">.geojson</code> siap pakai untuk dimasukkan ke layer peta WebGIS Desa (Leaflet) maupun diolah di QGIS.
                   </p>
                 </div>
                 <button
@@ -206,7 +206,7 @@ fetch('${geojsonApiUrl}')
               <div className="mt-3">
                 <div className="mb-1.5 flex items-center justify-between">
                   <span className="text-[11px] font-bold text-[#091F5C]">
-                    Kode Integrasi Leaflet.js untuk Tim WebGIS K4 (Afidatun & Haliza):
+                    Kode Integrasi Leaflet.js untuk Peta WebGIS Desa:
                   </span>
                   <button
                     type="button"
@@ -255,7 +255,7 @@ fetch('${geojsonApiUrl}')
 
               <div className="mt-3 border-t border-[#E8F2FE] pt-3">
                 <label className="mb-1 block text-[11px] font-bold text-[#091F5C]">
-                  Tautan Portal WebGIS Desa Kalikayen (GitHub Pages / Hosting K4):
+                  Tautan Portal WebGIS Desa Kalikayen (Opsional):
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -292,7 +292,7 @@ fetch('${geojsonApiUrl}')
                     Opsi A: Unduh & Install File .APK Android Native (Capacitor)
                   </h3>
                   <p className="mt-1 text-[11px] leading-relaxed text-[#7096D1]">
-                    Aplikasi telah dikemas menjadi <strong>Native Android (<code className="font-mono text-[#091F5C]">id.kalikayen.airlog</code>)</strong> melalui GitHub Actions Cloud Builder dan dapat diunduh sebagai file <strong><code className="font-mono text-[#091F5C]">AIRLOG-Desa-Kalikayen.apk</code></strong> untuk dibagikan ke Grup WhatsApp RT/RW Desa Kalikayen:
+                    Aplikasi telah dikemas menjadi <strong>Native Android (<code className="font-mono text-[#091F5C]">id.kalikayen.airlog</code>)</strong> dan siap diunduh sebagai file <strong><code className="font-mono text-[#091F5C]">AIRLOG-Desa-Kalikayen.apk</code></strong> untuk dibagikan ke Grup WhatsApp RT/RW Desa Kalikayen:
                   </p>
                 </div>
 
@@ -304,7 +304,7 @@ fetch('${geojsonApiUrl}')
                     className="inline-flex items-center gap-1.5 rounded-full bg-[#091F5C] px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-[#334DAF]"
                   >
                     <Download className="h-4 w-4 text-[#D0E4FE]" />
-                    Unduh AIRLOG-Desa-Kalikayen.apk (4.3 MB)
+                    Unduh AIRLOG-Desa-Kalikayen.apk (8.3 MB)
                   </a>
                   <a
                     href="https://github.com/zephyrusrothstaylor-maker/airlog-desa-kalikayen"
@@ -396,7 +396,7 @@ npm run mobile:open`}
             </a>
           ) : (
             <span className="text-[11px] text-[#7096D1]">
-              Klaster K4 • Portal Informasi Air Desa & Aplikasi AIRLOG
+              Portal Informasi Air Desa Kalikayen • Aplikasi AIRLOG
             </span>
           )}
           <button

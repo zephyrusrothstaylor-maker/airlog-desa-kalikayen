@@ -169,7 +169,7 @@ export default function App() {
 
   const handleExportGeoJson = () => {
     exportFacilitiesToGeoJson(facilities, dusunList);
-    showToast('Layer GeoJSON (.geojson) WGS84 untuk WebGIS K4 berhasil diunduh.');
+    showToast('Layer GeoJSON (.geojson) WGS84 untuk WebGIS Desa berhasil diunduh.');
   };
 
   const handleSaveWebGisPortalUrl = (url: string) => {
@@ -182,8 +182,8 @@ export default function App() {
     }
     showToast(
       trimmed
-        ? 'URL Portal WebGIS K4 berhasil disimpan.'
-        : 'Tautan Portal WebGIS K4 telah direset.'
+        ? 'URL Portal WebGIS Desa berhasil disimpan.'
+        : 'Tautan Portal WebGIS Desa telah direset.'
     );
   };
 
@@ -362,7 +362,7 @@ export default function App() {
                     className="inline-flex items-center gap-1.5 rounded-full bg-[#091F5C] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#334DAF]"
                   >
                     <Download className="h-3.5 w-3.5 text-[#D0E4FE]" />
-                    Unduh AIRLOG-Desa-Kalikayen.apk (4.3 MB)
+                    Unduh AIRLOG-Desa-Kalikayen.apk (8.3 MB)
                   </a>
                   <a
                     href="https://github.com/zephyrusrothstaylor-maker/airlog-desa-kalikayen"
