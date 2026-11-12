@@ -198,7 +198,7 @@ export default function App() {
       const choice = await deferredInstallPrompt.userChoice;
       if (choice.outcome === 'accepted') {
         setDeferredInstallPrompt(null);
-        showToast('Aplikasi AIRLOG Kalikayen berhasil di-install!');
+        showToast('Aplikasi SI-AIR Kalikayen berhasil di-install!');
       }
       return;
     }
@@ -327,10 +327,10 @@ export default function App() {
                 </div>
                 <div>
                   <h2 className="text-base font-extrabold text-[#091F5C]">
-                    Cara Install Aplikasi AIRLOG
+                    Cara Install Aplikasi SI-AIR
                   </h2>
                   <p className="text-xs text-[#7096D1]">
-                    Pasang di HP Android (.APK / PWA), iPhone, atau Laptop
+                    Pasang di Layar Utama HP Android, iPhone, atau Laptop
                   </p>
                 </div>
               </div>
@@ -356,21 +356,21 @@ export default function App() {
                 </p>
                 <div className="mt-2.5 flex flex-wrap items-center gap-2">
                   <a
-                    href="https://github.com/zephyrusrothstaylor-maker/airlog-desa-kalikayen/releases/latest/download/AIRLOG-Desa-Kalikayen.apk"
+                    href="https://uwntlfrttdwyucmtsdpq.supabase.co/storage/v1/object/public/apk-releases/AIRLOG-Desa-Kalikayen.apk"
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1.5 rounded-full bg-[#091F5C] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#334DAF]"
                   >
                     <Download className="h-3.5 w-3.5 text-[#D0E4FE]" />
-                    Unduh File .APK Android
+                    Unduh AIRLOG-Desa-Kalikayen.apk (4.3 MB)
                   </a>
                   <a
-                    href="https://github.com/zephyrusrothstaylor-maker/airlog-desa-kalikayen/releases"
+                    href="https://github.com/zephyrusrothstaylor-maker/airlog-desa-kalikayen"
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1 rounded-full bg-[#E8F2FE] px-3 py-2 text-[11px] font-bold text-[#091F5C] hover:bg-[#D0E4FE]"
                   >
-                    Halaman Rilis GitHub
+                    Repositori GitHub
                   </a>
                 </div>
               </div>
@@ -395,6 +395,21 @@ export default function App() {
                     Salin Link
                   </button>
                 </div>
+              </div>
+
+              <div className="space-y-2 rounded-2xl border border-[#D0E4FE] bg-white p-3.5">
+                <p className="font-bold text-[#091F5C]">1. Di HP Android (Google Chrome):</p>
+                <p className="text-[#334DAF]">
+                  Buka link di Chrome → Ketuk tombol <strong>Install Aplikasi</strong> di halaman utama, atau ketuk ikon titik tiga (⋮) di kanan atas → Pilih <strong>&quot;Tambahkan ke layar utama&quot; / &quot;Instal aplikasi&quot;</strong>.
+                </p>
+                <p className="pt-1 font-bold text-[#091F5C]">2. Di Laptop / PC (Chrome / Edge):</p>
+                <p className="text-[#334DAF]">
+                  Buka link di Chrome/Edge → Klik ikon <strong>Install (layar dengan panah bawah)</strong> di sebelah kanan kolom URL (Address Bar).
+                </p>
+                <p className="pt-1 font-bold text-[#091F5C]">3. Di iPhone / iPad (Safari):</p>
+                <p className="text-[#334DAF]">
+                  Buka link di Safari → Ketuk tombol <strong>Share (Bagikan)</strong> di bagian bawah → Pilih <strong>&quot;Add to Home Screen&quot; (Tambahkan ke Layar Utama)</strong>.
+                </p>
               </div>
             </div>
 

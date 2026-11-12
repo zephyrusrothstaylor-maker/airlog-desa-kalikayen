@@ -92,6 +92,7 @@ fetch('${geojsonApiUrl}')
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#091F5C]/65 p-0 backdrop-blur-xs sm:items-center sm:p-4">
       <div className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-[32px] bg-[#F9FBFF] p-5 shadow-float sm:rounded-[32px] sm:p-6">
+        {/* Header */}
         <div className="flex items-center justify-between border-b border-[#D0E4FE] pb-3.5">
           <div className="flex items-center gap-2.5">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#D0E4FE] text-[#091F5C]">
@@ -116,6 +117,7 @@ fetch('${geojsonApiUrl}')
           </button>
         </div>
 
+        {/* Section Switcher Tabs */}
         <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-[#E8F2FE] p-1.5">
           <button
             type="button"
@@ -145,6 +147,7 @@ fetch('${geojsonApiUrl}')
 
         {activeSection === 'webgis' ? (
           <div className="mt-4 space-y-4 text-xs text-[#091F5C]">
+            {/* 1. Export GeoJSON File for Haliza / QGIS / GitHub Pages */}
             <div className="rounded-2xl border border-[#D0E4FE] bg-white p-4 shadow-xs">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
@@ -169,6 +172,7 @@ fetch('${geojsonApiUrl}')
               </div>
             </div>
 
+            {/* 2. Live GeoJSON API Endpoint & Leaflet Code */}
             <div className="rounded-2xl border border-[#D0E4FE] bg-white p-4 shadow-xs">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
@@ -223,6 +227,7 @@ fetch('${geojsonApiUrl}')
               </div>
             </div>
 
+            {/* 3. Deep Link & Portal WebGIS URL Config */}
             <div className="rounded-2xl border border-[#D0E4FE] bg-white p-4 shadow-xs">
               <h3 className="text-sm font-extrabold text-[#091F5C]">
                 C. Tautan Balik (Deep-Link) & URL Portal WebGIS Utama
@@ -276,6 +281,7 @@ fetch('${geojsonApiUrl}')
           </div>
         ) : (
           <div className="mt-4 space-y-4 text-xs text-[#091F5C]">
+            {/* Opsi 1: Native Android APK via Capacitor */}
             <div className="rounded-2xl border border-[#D0E4FE] bg-white p-4 shadow-xs">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -292,22 +298,22 @@ fetch('${geojsonApiUrl}')
 
                 <div className="flex flex-wrap items-center gap-2">
                   <a
-                    href="https://github.com/zephyrusrothstaylor-maker/airlog-desa-kalikayen/releases/latest/download/AIRLOG-Desa-Kalikayen.apk"
+                    href="https://uwntlfrttdwyucmtsdpq.supabase.co/storage/v1/object/public/apk-releases/AIRLOG-Desa-Kalikayen.apk"
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1.5 rounded-full bg-[#091F5C] px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-[#334DAF]"
                   >
                     <Download className="h-4 w-4 text-[#D0E4FE]" />
-                    Unduh AIRLOG-Desa-Kalikayen.apk
+                    Unduh AIRLOG-Desa-Kalikayen.apk (4.3 MB)
                   </a>
                   <a
-                    href="https://github.com/zephyrusrothstaylor-maker/airlog-desa-kalikayen/actions"
+                    href="https://github.com/zephyrusrothstaylor-maker/airlog-desa-kalikayen"
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1.5 rounded-full border border-[#D0E4FE] bg-[#E8F2FE] px-3.5 py-2 text-xs font-bold text-[#091F5C] hover:bg-[#D0E4FE]"
                   >
                     <ExternalLink className="h-3.5 w-3.5 text-[#334DAF]" />
-                    Status Build Cloud APK
+                    Repositori GitHub
                   </a>
                 </div>
               </div>
@@ -315,18 +321,18 @@ fetch('${geojsonApiUrl}')
               <div className="mt-3 space-y-2 rounded-xl bg-[#E8F2FE] p-3 font-mono text-[11px] text-[#091F5C]">
                 <div>
                   <span className="font-sans font-bold text-[#334DAF]">
-                    • Link Unduh Langsung (Bisa Dibagikan di Grup WhatsApp Warga/Perangkat Desa):
+                    • Link Unduh Langsung .APK Cloud (Bisa Dibagikan di Grup WhatsApp Warga/Perangkat Desa):
                   </span>
                   <div className="mt-1 flex items-center justify-between gap-2 rounded-lg bg-white px-2.5 py-1.5">
                     <span className="truncate text-[10px] font-bold text-[#091F5C]">
-                      https://github.com/zephyrusrothstaylor-maker/airlog-desa-kalikayen/releases/latest/download/AIRLOG-Desa-Kalikayen.apk
+                      https://uwntlfrttdwyucmtsdpq.supabase.co/storage/v1/object/public/apk-releases/AIRLOG-Desa-Kalikayen.apk
                     </span>
                     <button
                       type="button"
                       onClick={() =>
                         void copyText(
                           'apklink',
-                          'https://github.com/zephyrusrothstaylor-maker/airlog-desa-kalikayen/releases/latest/download/AIRLOG-Desa-Kalikayen.apk'
+                          'https://uwntlfrttdwyucmtsdpq.supabase.co/storage/v1/object/public/apk-releases/AIRLOG-Desa-Kalikayen.apk'
                         )
                       }
                       className="shrink-0 rounded-md bg-[#334DAF] px-2 py-1 font-sans text-[10px] font-bold text-white hover:bg-[#091F5C]"
@@ -347,6 +353,7 @@ npm run mobile:open`}
               </div>
             </div>
 
+            {/* Opsi 2: PWA Mobile Web Install */}
             <div className="rounded-2xl border border-[#D0E4FE] bg-white p-4 shadow-xs">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
@@ -354,7 +361,7 @@ npm run mobile:open`}
                     Tanpa Download File APK • Android & iPhone
                   </span>
                   <h3 className="mt-1 text-sm font-extrabold text-[#091F5C]">
-                    Opsi B: Install Langsung dari Browser HP (PWA Mobile)
+                    Opsi 2: Install Langsung dari Browser HP (PWA Mobile)
                   </h3>
                   <p className="mt-0.5 text-[11px] text-[#7096D1]">
                     Buka link <strong>https://si-air-kalikayen.vercel.app</strong> di Google Chrome (Android) atau Safari (iPhone), lalu pasang langsung ke Layar Utama HP.
