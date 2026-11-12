@@ -304,7 +304,7 @@ fetch('${geojsonApiUrl}')
                     className="inline-flex items-center gap-1.5 rounded-full bg-[#091F5C] px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-[#334DAF]"
                   >
                     <Download className="h-4 w-4 text-[#D0E4FE]" />
-                    Unduh AIRLOG-Desa-Kalikayen.apk (8.3 MB)
+                    Unduh AIRLOG-Desa-Kalikayen.apk (4.3 MB)
                   </a>
                   <a
                     href="https://github.com/zephyrusrothstaylor-maker/airlog-desa-kalikayen"
