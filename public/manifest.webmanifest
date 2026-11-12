@@ -1,0 +1,21 @@
+{
+  "id": "/",
+  "name": "AIRLOG DESA KALIKAYEN — Inventarisasi & Pelaporan Sarana Air Bersih",
+  "short_name": "AIRLOG Kalikayen",
+  "description": "Sistem Inventarisasi dan Pelaporan Kondisi Sarana Air Bersih Berbasis Geotagging Partisipatif Desa Kalikayen, Kecamatan Ungaran Timur, Kabupaten Semarang",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#091F5C",
+  "theme_color": "#091F5C",
+  "categories": ["utilities", "productivity", "government"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
