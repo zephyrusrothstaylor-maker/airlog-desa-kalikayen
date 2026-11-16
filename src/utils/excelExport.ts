@@ -6,14 +6,16 @@ import {
   type Dusun,
   type WaterFacility,
 } from '../types/inventory';
+import { saveOrShareExportFile } from './fileSave';
 
 export async function exportInventoryToExcel(
   facilities: WaterFacility[],
   dusunList: Dusun[],
   villageName = 'Desa'
-): Promise<void> {
+): Promise<'shared' | 'downloaded'> {
   const XLSX = await import('xlsx');
 
+  // Sheet 1: Rekapitulasi Per Dusun
   const summaryRows = dusunList.map((dusun, index) => {
     const items = facilities.filter((f) => f.dusun_id === dusun.id);
     const baik = items.filter((f) => f.condition === 'berfungsi_baik').length;
@@ -38,6 +40,7 @@ export async function exportInventoryToExcel(
     };
   });
 
+  // Sheet 2: Daftar Lengkap Titik Fasilitas & Sumber Air
   const detailRows = facilities.map((item, index) => ({
     No: index + 1,
     'Kode Titik': item.code,
@@ -115,5 +118,13 @@ export async function exportInventoryToExcel(
 
   const dateStamp = new Date().toISOString().slice(0, 10);
   const safeVillage = villageName.replace(/[^a-zA-Z0-9_-]/g, '_');
-  XLSX.writeFile(workbook, `Inventaris_Air_${safeVillage}_${dateStamp}.xlsx`);
+  const filename = `Inventaris_Air_${safeVillage}_${dateStamp}.xlsx`;
+  const xlsxBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
+
+  return saveOrShareExportFile({
+    filename,
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    data: new Uint8Array(xlsxBuffer),
+    dialogTitle: 'Simpan / Bagikan Laporan Excel AIRLOG',
+  });
 }

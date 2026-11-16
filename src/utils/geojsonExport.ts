@@ -7,6 +7,7 @@ import {
   type PhysicalCondition,
   type WaterFacility,
 } from '../types/inventory';
+import { saveOrShareExportFile } from './fileSave';
 
 const CONDITION_HEX_MAP: Record<PhysicalCondition, string> = {
   berfungsi_baik: '#10B981',
@@ -86,21 +87,18 @@ export function buildGeoJsonFeatureCollection(
   };
 }
 
-export function exportFacilitiesToGeoJson(
+export async function exportFacilitiesToGeoJson(
   facilities: WaterFacility[],
   dusunList: Dusun[]
-): void {
+): Promise<'shared' | 'downloaded'> {
   const geojson = buildGeoJsonFeatureCollection(facilities, dusunList);
-  const blob = new Blob([JSON.stringify(geojson, null, 2)], {
-    type: 'application/geo+json;charset=utf-8',
-  });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
   const dateStamp = new Date().toISOString().slice(0, 10);
-  a.href = url;
-  a.download = `Layer_AIRLOG_Desa_Kalikayen_${dateStamp}.geojson`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  const filename = `Layer_AIRLOG_Desa_Kalikayen_${dateStamp}.geojson`;
+
+  return saveOrShareExportFile({
+    filename,
+    mimeType: 'application/geo+json;charset=utf-8',
+    data: JSON.stringify(geojson, null, 2),
+    dialogTitle: 'Simpan / Bagikan Layer GeoJSON WebGIS',
+  });
 }

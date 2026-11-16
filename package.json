@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "AIRLOG - Sistem Inventarisasi dan Pelaporan Kondisi Sarana Air Bersih Berbasis Geotagging Partisipatif Desa Kalikayen (Klaster K4)",
+  "description": "AIRLOG - Sistem Inventarisasi dan Pelaporan Kondisi Sarana Air Bersih Berbasis Geotagging Partisipatif Desa Kalikayen",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -14,9 +14,13 @@
     "mobile:open": "npx cap open android"
   },
   "dependencies": {
-    "@capacitor/android": "^8.2.0",
-    "@capacitor/cli": "^8.2.0",
-    "@capacitor/core": "^8.2.0",
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/cli": "^8.6.0",
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/geolocation": "^8.2.4",
+    "@capacitor/share": "^8.0.3",
     "@supabase/supabase-js": "^2.48.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.475.0",
