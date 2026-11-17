@@ -15,6 +15,13 @@ const STORAGE_KEYS = {
   LOGS: 'si_air_kalikayen_condition_logs_v3',
 } as const;
 
+export type DataConnectionMode = 'cloud' | 'offline';
+let currentConnectionMode: DataConnectionMode = isSupabaseConfigured ? 'cloud' : 'offline';
+
+export function getDataConnectionMode(): DataConnectionMode {
+  return currentConnectionMode;
+}
+
 function readLocal<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key);
@@ -38,16 +45,23 @@ function writeLocal<T>(key: string, data: T): void {
 
 export async function getDusunList(): Promise<Dusun[]> {
   if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase
-      .from('dusun')
-      .select('id, code, name, head_name, head_phone, total_kk, created_at, updated_at')
-      .order('code', { ascending: true });
+    try {
+      const { data, error } = await supabase
+        .from('dusun')
+        .select('id, code, name, head_name, head_phone, total_kk, created_at, updated_at')
+        .order('code', { ascending: true });
 
-    if (!error && data) {
-      return data as Dusun[];
+      if (!error && data) {
+        currentConnectionMode = 'cloud';
+        writeLocal(STORAGE_KEYS.DUSUN, data as Dusun[]);
+        return data as Dusun[];
+      }
+    } catch {
+      // Fallback to cached local dusun list
     }
   }
 
+  currentConnectionMode = 'offline';
   return readLocal<Dusun[]>(STORAGE_KEYS.DUSUN, SEED_DUSUN);
 }
 
@@ -56,21 +70,29 @@ export async function getFacilities(): Promise<WaterFacility[]> {
   const dusunMap = new Map(dusunList.map((d) => [d.id, d.name]));
 
   if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase
-      .from('water_facilities')
-      .select(
-        'id, code, name, dusun_id, rt, rw, address_detail, category, condition, water_clarity, seasonal_availability, condition_notes, latitude, longitude, elevation_m, beneficiary_kk, built_year, funding_source, manager_name, manager_phone, photo_url, last_inspected_at, last_inspected_by, created_at, updated_at'
-      )
-      .order('code', { ascending: true });
+    try {
+      const { data, error } = await supabase
+        .from('water_facilities')
+        .select(
+          'id, code, name, dusun_id, rt, rw, address_detail, category, condition, water_clarity, seasonal_availability, condition_notes, latitude, longitude, elevation_m, beneficiary_kk, built_year, funding_source, manager_name, manager_phone, photo_url, last_inspected_at, last_inspected_by, created_at, updated_at'
+        )
+        .order('code', { ascending: true });
 
-    if (!error && data) {
-      return (data as WaterFacility[]).map((item) => ({
-        ...item,
-        dusun_name: dusunMap.get(item.dusun_id) ?? 'Dusun',
-      }));
+      if (!error && data) {
+        currentConnectionMode = 'cloud';
+        const mapped = (data as WaterFacility[]).map((item) => ({
+          ...item,
+          dusun_name: dusunMap.get(item.dusun_id) ?? 'Dusun',
+        }));
+        writeLocal(STORAGE_KEYS.FACILITIES, mapped);
+        return mapped;
+      }
+    } catch {
+      // Fallback to cached local facilities
     }
   }
 
+  currentConnectionMode = 'offline';
   const localFacilities = readLocal<WaterFacility[]>(
     STORAGE_KEYS.FACILITIES,
     SEED_WATER_FACILITIES
@@ -265,18 +287,25 @@ export async function deleteFacility(facilityId: string): Promise<void> {
 
 export async function getConditionLogs(facilityId?: string): Promise<FacilityConditionLog[]> {
   if (isSupabaseConfigured && supabase) {
-    let query = supabase
-      .from('facility_condition_logs')
-      .select('id, facility_id, previous_condition, new_condition, notes, photo_url, inspector_name, inspected_at')
-      .order('inspected_at', { ascending: false });
+    try {
+      let query = supabase
+        .from('facility_condition_logs')
+        .select('id, facility_id, previous_condition, new_condition, notes, photo_url, inspector_name, inspected_at')
+        .order('inspected_at', { ascending: false });
 
-    if (facilityId) {
-      query = query.eq('facility_id', facilityId);
-    }
+      if (facilityId) {
+        query = query.eq('facility_id', facilityId);
+      }
 
-    const { data, error } = await query;
-    if (!error && data) {
-      return data as FacilityConditionLog[];
+      const { data, error } = await query;
+      if (!error && data) {
+        if (!facilityId) {
+          writeLocal(STORAGE_KEYS.LOGS, data as FacilityConditionLog[]);
+        }
+        return data as FacilityConditionLog[];
+      }
+    } catch {
+      // Fallback to cached logs
     }
   }
 
@@ -306,7 +335,7 @@ export function computeSummaryStats(facilities: WaterFacility[]): InventorySumma
   );
 }
 
-export function resetToSeedData(): void {
+export function resetDemoData(): void {
   writeLocal(STORAGE_KEYS.DUSUN, SEED_DUSUN);
   writeLocal(STORAGE_KEYS.FACILITIES, SEED_WATER_FACILITIES);
   writeLocal(STORAGE_KEYS.LOGS, SEED_CONDITION_LOGS);

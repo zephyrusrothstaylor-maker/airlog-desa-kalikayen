@@ -15,9 +15,10 @@ export function BottomNavBar({
   return (
     <nav
       aria-label="Navigasi Utama"
-      className="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-xl px-4 pb-3"
+      className="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-xl px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
     >
       <div className="relative flex items-center justify-between rounded-[28px] bg-[#091F5C] px-5 py-2.5 text-white shadow-float">
+        {/* Left 2 Tabs */}
         <button
           type="button"
           onClick={() => onSelectTab('dashboard')}
@@ -40,6 +41,7 @@ export function BottomNavBar({
           <span>Peta Air</span>
         </button>
 
+        {/* Reference 1 Prominent Raised Circular Center Button (#7096D1 with White Cutout Ring) */}
         <div className="-mt-8 flex flex-col items-center">
           <button
             type="button"
@@ -52,6 +54,7 @@ export function BottomNavBar({
           <span className="mt-0.5 text-[10px] font-extrabold text-[#D0E4FE]">Cek Fisik</span>
         </div>
 
+        {/* Right 2 Tabs */}
         <button
           type="button"
           onClick={() => onSelectTab('list')}

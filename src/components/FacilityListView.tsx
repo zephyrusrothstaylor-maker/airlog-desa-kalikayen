@@ -50,6 +50,7 @@ export function FacilityListView({
   const [selectedDusun, setSelectedDusun] = useState<string>('all');
   const [selectedCondition, setSelectedCondition] = useState<string>(initialConditionFilter);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [pendingDeleteFacility, setPendingDeleteFacility] = useState<WaterFacility | null>(null);
 
   const filteredFacilities = useMemo(() => {
     return facilities.filter((item) => {
@@ -92,7 +93,7 @@ export function FacilityListView({
   return (
     <div className="min-h-screen bg-[#F9FBFF] pb-28">
       {/* Top Search & Filter Bar (Reference 1 Middle Screen + Reference 2 Header) */}
-      <header className="sticky top-0 z-20 border-b border-[#D0E4FE] bg-[#F9FBFF]/95 px-4 py-4 backdrop-blur-md sm:px-8">
+      <header className="sticky top-0 z-20 border-b border-[#D0E4FE] bg-[#F9FBFF]/95 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-md sm:px-8">
         <div className="mx-auto max-w-5xl space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -140,7 +141,7 @@ export function FacilityListView({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Cari nama titik air, kode (AIR-...), atau patokan lokasi..."
+                placeholder="Cari nama titik air, kode (AIR-KKY-...), atau patokan lokasi..."
                 className="w-full rounded-full border border-[#D0E4FE] bg-white py-2.5 pl-10 pr-4 text-sm text-[#091F5C] placeholder-[#7096D1] shadow-sm focus:border-[#334DAF] focus:outline-none"
               />
             </div>
@@ -360,9 +361,9 @@ export function FacilityListView({
 
                         <button
                           type="button"
-                          onClick={() => onDeleteFacility(facility.id)}
+                          onClick={() => setPendingDeleteFacility(facility)}
                           title="Hapus titik air"
-                          className="inline-flex items-center justify-center rounded-full bg-rose-50 p-1.5 text-rose-600 transition hover:bg-rose-100"
+                          className="inline-flex items-center justify-center rounded-full bg-rose-50 p-2 text-rose-600 transition hover:bg-rose-100"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -375,6 +376,38 @@ export function FacilityListView({
           </div>
         )}
       </div>
+
+      {pendingDeleteFacility && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#091F5C]/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-sm rounded-[28px] bg-[#F9FBFF] p-5 shadow-float">
+            <h2 className="text-base font-extrabold text-[#091F5C]">
+              Hapus Titik Fasilitas Air?
+            </h2>
+            <p className="mt-1.5 text-xs leading-relaxed text-[#334DAF]">
+              Titik <strong>[{pendingDeleteFacility.code}] {pendingDeleteFacility.name}</strong> beserta riwayat pemeriksaannya akan dihapus permanen dari daftar Desa Kalikayen.
+            </p>
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingDeleteFacility(null)}
+                className="rounded-full bg-[#E8F2FE] px-4 py-2 text-xs font-bold text-[#091F5C] hover:bg-[#D0E4FE]"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onDeleteFacility(pendingDeleteFacility.id);
+                  setPendingDeleteFacility(null);
+                }}
+                className="rounded-full bg-rose-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-rose-700"
+              >
+                Ya, Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

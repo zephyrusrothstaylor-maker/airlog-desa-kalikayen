@@ -12,10 +12,12 @@ import {
   MapPin,
   Navigation,
   PlusCircle,
+  RefreshCw,
   ShieldCheck,
   Smartphone,
   Users,
 } from 'lucide-react';
+import type { DataConnectionMode } from '../services/inventoryService';
 import type { Dusun, InventorySummaryStats, WaterFacility } from '../types/inventory';
 import { CategoryIcon, ConditionBadge, getCategoryLabel } from './ConditionBadge';
 
@@ -26,6 +28,10 @@ interface DashboardViewProps {
   facilities: WaterFacility[];
   dusunList: Dusun[];
   isSupabaseReady: boolean;
+  isLoading: boolean;
+  isSyncing: boolean;
+  connectionMode: DataConnectionMode;
+  isNativeApp: boolean;
   webGisPortalUrl: string;
   onNavigateTab: (tab: ActiveTab, filterCondition?: string) => void;
   onOpenAddModal: () => void;
@@ -35,6 +41,7 @@ interface DashboardViewProps {
   onExportGeoJson: () => void;
   onOpenWebGisModal: () => void;
   onInstallApp: () => void;
+  onSyncData: () => void;
 }
 
 export function DashboardView({
@@ -42,6 +49,10 @@ export function DashboardView({
   facilities,
   dusunList,
   isSupabaseReady,
+  isLoading,
+  isSyncing,
+  connectionMode,
+  isNativeApp,
   webGisPortalUrl,
   onNavigateTab,
   onOpenAddModal,
@@ -51,6 +62,7 @@ export function DashboardView({
   onExportGeoJson,
   onOpenWebGisModal,
   onInstallApp,
+  onSyncData,
 }: DashboardViewProps) {
   const priorityFacilities = facilities.filter((f) => f.condition !== 'berfungsi_baik');
 
@@ -122,14 +134,16 @@ export function DashboardView({
     },
     {
       id: 'webgis',
-      title: 'WebGIS & APK',
-      subtitle: 'GeoJSON & Mobile',
+      title: isNativeApp ? 'Integrasi WebGIS' : 'WebGIS & APK',
+      subtitle: isNativeApp ? 'Layer GeoJSON' : 'GeoJSON & Mobile',
       icon: Layers,
       accentBg: 'bg-amber-100',
       iconColor: 'text-amber-800',
       onClick: onOpenWebGisModal,
     },
   ];
+
+  const isCloudLive = isSupabaseReady && connectionMode === 'cloud';
 
   return (
     <div className="min-h-screen bg-[#091F5C] pb-28">
@@ -166,15 +180,15 @@ export function DashboardView({
               <span className="hidden items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-[#D0E4FE] sm:inline-flex">
                 <span
                   className={`h-2 w-2 rounded-full ${
-                    isSupabaseReady ? 'bg-emerald-400' : 'bg-[#D0E4FE]'
+                    isCloudLive ? 'bg-emerald-400' : 'bg-amber-400'
                   }`}
                 />
-                {isSupabaseReady ? 'Cloud Aktif' : 'Penyimpanan Desa'}
+                {isCloudLive ? 'Cloud Aktif' : 'Mode Offline'}
               </span>
               <div className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/15 px-3 py-1.5 backdrop-blur-sm">
                 <span
                   className={`h-2 w-2 rounded-full sm:hidden ${
-                    isSupabaseReady ? 'bg-emerald-400' : 'bg-[#D0E4FE]'
+                    isCloudLive ? 'bg-emerald-400' : 'bg-amber-400'
                   }`}
                 />
                 <Users className="h-3.5 w-3.5 text-[#D0E4FE]" />
@@ -191,6 +205,7 @@ export function DashboardView({
               </h1>
               <p className="mt-1.5 text-xs font-medium leading-relaxed text-[#D0E4FE] sm:text-sm">
                 Geotagging Partisipatif • Pembaruan: {formattedLastUpdate} • {dusunList.length} Wilayah Dusun
+                {!isCloudLive && !isLoading ? ' • Offline' : ''}
               </p>
             </div>
 
@@ -211,7 +226,7 @@ export function DashboardView({
                   className="inline-flex items-center justify-center gap-1.5 rounded-full border border-[#D0E4FE]/40 bg-white/15 px-4 py-2.5 text-xs font-bold text-white backdrop-blur-xs transition hover:bg-white/25 active:scale-[0.99]"
                 >
                   <Layers className="h-4 w-4 text-[#D0E4FE]" />
-                  WebGIS & APK
+                  {isNativeApp ? 'WebGIS Desa' : 'WebGIS & APK'}
                 </button>
               </div>
               <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
@@ -231,14 +246,26 @@ export function DashboardView({
                   <FileSpreadsheet className="h-3.5 w-3.5 text-[#D0E4FE]" />
                   Excel
                 </button>
-                <button
-                  type="button"
-                  onClick={onInstallApp}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-white/15 px-3 py-2 text-[11px] font-bold text-white backdrop-blur-xs transition hover:bg-white/25 active:scale-[0.99]"
-                >
-                  <Download className="h-3.5 w-3.5 text-[#D0E4FE]" />
-                  Install
-                </button>
+                {isNativeApp ? (
+                  <button
+                    type="button"
+                    onClick={onSyncData}
+                    disabled={isSyncing}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-full bg-white/15 px-3 py-2 text-[11px] font-bold text-white backdrop-blur-xs transition hover:bg-white/25 active:scale-[0.99] disabled:opacity-60"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 text-[#D0E4FE] ${isSyncing ? 'animate-spin' : ''}`} />
+                    {isSyncing ? 'Memuat...' : 'Sinkron'}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onInstallApp}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-full bg-white/15 px-3 py-2 text-[11px] font-bold text-white backdrop-blur-xs transition hover:bg-white/25 active:scale-[0.99]"
+                  >
+                    <Download className="h-3.5 w-3.5 text-[#D0E4FE]" />
+                    Install
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -452,7 +479,17 @@ export function DashboardView({
               </button>
             </div>
 
-            {facilities.length === 0 ? (
+            {isLoading && facilities.length === 0 ? (
+              <div className="rounded-3xl border border-[#D0E4FE] bg-white p-8 text-center shadow-card">
+                <RefreshCw className="mx-auto mb-2.5 h-6 w-6 animate-spin text-[#334DAF]" />
+                <h3 className="text-sm font-extrabold text-[#091F5C]">
+                  Memuat Data Sarana Air Desa Kalikayen...
+                </h3>
+                <p className="mt-1 text-xs text-[#7096D1]">
+                  Menyinkronkan data terbaru dari server Cloud.
+                </p>
+              </div>
+            ) : facilities.length === 0 ? (
               <div className="rounded-3xl border border-dashed border-[#7096D1] bg-white p-8 text-center shadow-card">
                 <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#E8F2FE] text-[#334DAF]">
                   <Droplets className="h-6 w-6" />

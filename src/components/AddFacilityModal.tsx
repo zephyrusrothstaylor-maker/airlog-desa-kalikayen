@@ -58,6 +58,7 @@ export function AddFacilityModal({
 
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [photoSizeKB, setPhotoSizeKB] = useState<number | null>(null);
+  const [isCompressingPhoto, setIsCompressingPhoto] = useState(false);
   const [gpsStatus, setGpsStatus] = useState<string | null>(null);
   const [isGettingGps, setIsGettingGps] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -86,12 +87,16 @@ export function AddFacilityModal({
   const handlePhotoUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setIsCompressingPhoto(true);
+    setErrorMsg(null);
     try {
       const compressed = await compressImageToWebP(file);
       setPhotoDataUrl(compressed.dataUrl);
       setPhotoSizeKB(compressed.sizeKB);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Gagal mengompresi foto.');
+    } finally {
+      setIsCompressingPhoto(false);
     }
   };
 
@@ -169,6 +174,7 @@ export function AddFacilityModal({
         </div>
 
         <form onSubmit={(e) => void handleSubmit(e)} className="mt-4 space-y-4">
+          {/* Kode & Nama Fasilitas */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <label className="mb-1 block text-xs font-bold text-[#091F5C]">Kode Plang *</label>
@@ -195,6 +201,7 @@ export function AddFacilityModal({
             </div>
           </div>
 
+          {/* Dusun, RT, RW */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="col-span-2">
               <label className="mb-1 block text-xs font-bold text-[#091F5C]">Wilayah Dusun *</label>
@@ -230,6 +237,7 @@ export function AddFacilityModal({
             </div>
           </div>
 
+          {/* Kategori & Kondisi */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-bold text-[#091F5C]">
@@ -266,6 +274,7 @@ export function AddFacilityModal({
             </div>
           </div>
 
+          {/* Kualitas & Ketersediaan Air */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-bold text-[#091F5C]">Kualitas Air</label>
@@ -303,6 +312,7 @@ export function AddFacilityModal({
             </div>
           </div>
 
+          {/* Koordinat GPS Otomatis */}
           <div className="rounded-2xl border border-[#D0E4FE] bg-[#E8F2FE] p-3.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs font-bold text-[#091F5C]">
@@ -359,6 +369,7 @@ export function AddFacilityModal({
             </div>
           </div>
 
+          {/* Manfaat KK, Tahun, Sumber Dana */}
           <div className="grid grid-cols-3 gap-2.5">
             <div>
               <label className="mb-1 block text-xs font-bold text-[#091F5C]">KK Pemanfaat *</label>
@@ -392,6 +403,7 @@ export function AddFacilityModal({
             </div>
           </div>
 
+          {/* Patokan Lokasi & Catatan Kondisi */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-bold text-[#091F5C]">Patokan Lokasi</label>
@@ -439,12 +451,17 @@ export function AddFacilityModal({
             />
           </div>
 
+          {/* Foto & Penginput */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-bold text-[#091F5C]">Foto Lapangan</label>
               <label className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-dashed border-[#7096D1] bg-[#E8F2FE] px-3.5 py-2 text-xs font-bold text-[#091F5C] hover:bg-[#D0E4FE]">
                 <Camera className="h-4 w-4 text-[#334DAF]" />
-                {photoSizeKB ? `Foto Siap (${photoSizeKB} KB)` : 'Unggah Foto Kamera'}
+                {isCompressingPhoto
+                  ? 'Mengompres Foto...'
+                  : photoSizeKB
+                    ? `Foto Siap (${photoSizeKB} KB)`
+                    : 'Unggah Foto Kamera'}
                 <input
                   type="file"
                   accept="image/*"
@@ -453,6 +470,25 @@ export function AddFacilityModal({
                   className="hidden"
                 />
               </label>
+              {photoDataUrl && (
+                <div className="mt-2 flex items-center gap-2.5">
+                  <img
+                    src={photoDataUrl}
+                    alt="Preview lokasi"
+                    className="h-14 w-20 rounded-xl border border-[#D0E4FE] object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPhotoDataUrl(null);
+                      setPhotoSizeKB(null);
+                    }}
+                    className="text-xs font-semibold text-rose-600 hover:underline"
+                  >
+                    Hapus Foto
+                  </button>
+                </div>
+              )}
             </div>
             <div>
               <label className="mb-1 block text-xs font-bold text-[#091F5C]">
@@ -484,7 +520,7 @@ export function AddFacilityModal({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isCompressingPhoto}
               className="rounded-full bg-[#334DAF] px-6 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#091F5C] disabled:opacity-50"
             >
               {isSubmitting ? 'Menyimpan...' : 'Simpan Titik Air'}

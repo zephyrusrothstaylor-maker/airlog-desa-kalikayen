@@ -7,10 +7,12 @@ import {
   Compass,
   ExternalLink,
   Layers,
+  LocateFixed,
   Navigation,
   Plus,
   Users,
 } from 'lucide-react';
+import { captureCurrentGpsPosition } from '../utils/geolocation';
 import {
   PHYSICAL_CONDITION_LABELS,
   type PhysicalCondition,
@@ -60,10 +62,13 @@ export function MapExplorerView({
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
+  const userLocationLayerRef = useRef<L.LayerGroup | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
 
   const [mapStyle, setMapStyle] = useState<'osm' | 'satellite'>('osm');
   const [conditionFilter, setConditionFilter] = useState<string>('all');
+  const [isLocatingUser, setIsLocatingUser] = useState(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
 
   const visibleFacilities = useMemo(() => {
     if (conditionFilter === 'all') return facilities;
@@ -77,6 +82,7 @@ export function MapExplorerView({
     return visibleFacilities[0] ?? null;
   }, [selectedFacility, visibleFacilities]);
 
+  // Initialize Leaflet Map
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
 
@@ -98,19 +104,23 @@ export function MapExplorerView({
     }).addTo(map);
 
     const markersGroup = L.layerGroup().addTo(map);
+    const userLocGroup = L.layerGroup().addTo(map);
 
     mapInstanceRef.current = map;
     tileLayerRef.current = tileLayer;
     markersLayerRef.current = markersGroup;
+    userLocationLayerRef.current = userLocGroup;
 
     return () => {
       map.remove();
       mapInstanceRef.current = null;
       tileLayerRef.current = null;
       markersLayerRef.current = null;
+      userLocationLayerRef.current = null;
     };
   }, []);
 
+  // Switch Base Layer (OSM Street <-> Esri World Imagery Satellite)
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map || !tileLayerRef.current) return;
@@ -135,6 +145,7 @@ export function MapExplorerView({
     tileLayerRef.current = nextTile;
   }, [mapStyle]);
 
+  // Render Markers
   useEffect(() => {
     const markersGroup = markersLayerRef.current;
     if (!markersGroup) return;
@@ -155,6 +166,7 @@ export function MapExplorerView({
     });
   }, [visibleFacilities, activeFacility, onSelectFacility]);
 
+  // Pan to active facility
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map || !activeFacility) return;
@@ -173,32 +185,75 @@ export function MapExplorerView({
     onSelectFacility(visibleFacilities[nextIndex]);
   };
 
+  const handleCenterOnUserLocation = async () => {
+    setIsLocatingUser(true);
+    setGpsError(null);
+    try {
+      const coords = await captureCurrentGpsPosition();
+      const map = mapInstanceRef.current;
+      const locGroup = userLocationLayerRef.current;
+      if (map && locGroup) {
+        locGroup.clearLayers();
+        L.circle([coords.latitude, coords.longitude], {
+          radius: Math.max(15, coords.accuracy_m),
+          color: '#334DAF',
+          fillColor: '#7096D1',
+          fillOpacity: 0.25,
+          weight: 1.5,
+        }).addTo(locGroup);
+        L.circleMarker([coords.latitude, coords.longitude], {
+          radius: 7,
+          color: '#FFFFFF',
+          fillColor: '#091F5C',
+          fillOpacity: 1,
+          weight: 2.5,
+        }).addTo(locGroup);
+        map.flyTo([coords.latitude, coords.longitude], 17, { duration: 0.7 });
+      }
+    } catch (err) {
+      setGpsError(err instanceof Error ? err.message : 'Gagal membaca lokasi GPS.');
+      window.setTimeout(() => setGpsError(null), 4000);
+    } finally {
+      setIsLocatingUser(false);
+    }
+  };
+
   return (
     <div className="relative flex h-[calc(100dvh)] flex-col overflow-hidden bg-[#E8F2FE]">
-      <div className="pointer-events-none absolute inset-x-0 top-4 z-20 mx-auto max-w-3xl px-4">
-        <div className="pointer-events-auto flex items-center justify-between rounded-2xl bg-[#334DAF] px-4 py-3 text-white shadow-float">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#D0E4FE] text-[#091F5C]">
+      {/* Reference 1 Right Screen: Floating Top Pill Header */}
+      <div className="pointer-events-none absolute inset-x-0 top-[max(1rem,env(safe-area-inset-top))] z-20 mx-auto max-w-3xl px-4">
+        <div className="pointer-events-auto flex items-center justify-between gap-2 rounded-2xl bg-[#334DAF] px-4 py-3 text-white shadow-float">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#D0E4FE] text-[#091F5C]">
               <Compass className="h-4 w-4" />
             </div>
-            <div>
-              <span className="block text-xs font-extrabold tracking-wide">
-                Peta Titik Air Desa Kalikayen ({visibleFacilities.length} Lokasi)
+            <div className="min-w-0">
+              <span className="block truncate text-xs font-extrabold tracking-wide">
+                Peta Titik Air Kalikayen ({visibleFacilities.length})
               </span>
-              <span className="block text-[11px] text-[#D0E4FE]">
-                Kec. Ungaran Timur • Ketuk pin warna untuk detail kondisi fisik
+              <span className="block truncate text-[11px] text-[#D0E4FE]">
+                Kec. Ungaran Timur • Ketuk pin untuk detail
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => void handleCenterOnUserLocation()}
+              disabled={isLocatingUser}
+              title="Lokasi GPS Saya"
+              className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/15 text-white transition hover:bg-white/25 disabled:opacity-60"
+            >
+              <LocateFixed className={`h-4 w-4 ${isLocatingUser ? 'animate-pulse text-[#D0E4FE]' : ''}`} />
+            </button>
             <button
               type="button"
               onClick={() => setMapStyle((prev) => (prev === 'osm' ? 'satellite' : 'osm'))}
-              className="inline-flex items-center gap-1 rounded-xl bg-white/15 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-white/25"
+              className="inline-flex items-center gap-1 rounded-xl bg-white/15 px-2.5 py-1.5 text-xs font-bold text-white transition hover:bg-white/25"
             >
               <Layers className="h-3.5 w-3.5" />
-              {mapStyle === 'osm' ? 'Satelit' : 'Peta Jalan'}
+              {mapStyle === 'osm' ? 'Satelit' : 'Jalan'}
             </button>
             <button
               type="button"
@@ -211,6 +266,13 @@ export function MapExplorerView({
           </div>
         </div>
 
+        {gpsError && (
+          <div className="pointer-events-auto mt-2 rounded-xl bg-rose-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm">
+            {gpsError}
+          </div>
+        )}
+
+        {/* Floating Legend / Filter Pills */}
         <div className="pointer-events-auto mt-2 flex flex-wrap items-center gap-1.5">
           {[
             { id: 'all', label: 'Semua', dot: 'bg-[#334DAF]' },
@@ -236,10 +298,12 @@ export function MapExplorerView({
         </div>
       </div>
 
+      {/* Interactive Leaflet Map Canvas */}
       <div ref={mapContainerRef} className="h-full w-full flex-1" />
 
+      {/* Reference 1 Right Screen: Layered Rounded Bottom Sheet */}
       {!activeFacility ? (
-        <div className="relative z-20 mx-auto w-full max-w-xl px-4 pb-24">
+        <div className="relative z-20 mx-auto w-full max-w-xl px-4 pb-28">
           <div className="rounded-[26px] border border-[#D0E4FE] bg-[#F9FBFF] p-5 text-center shadow-float">
             <h2 className="text-sm font-extrabold text-[#091F5C]">
               Belum Ada Titik Air di Peta Desa Kalikayen (0 Lokasi)
@@ -258,7 +322,8 @@ export function MapExplorerView({
           </div>
         </div>
       ) : (
-        <div className="relative z-20 mx-auto w-full max-w-3xl px-2 pb-24 sm:px-4">
+        <div className="relative z-20 mx-auto w-full max-w-3xl px-2 pb-28 sm:px-4">
+          {/* Upper Accent Layer (Matches Reference 1's colored top tab of bottom sheet) */}
           <div className="rounded-t-[28px] bg-[#334DAF] px-5 pt-3 pb-6 text-white shadow-float">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -291,10 +356,18 @@ export function MapExplorerView({
             </div>
           </div>
 
+          {/* Inner White Card (Matches Reference 1's Workplace card with 3 square tiles) */}
           <div className="-mt-4 rounded-[26px] border border-[#D0E4FE] bg-[#F9FBFF] p-4 shadow-float sm:p-5">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <h2 className="text-base font-extrabold text-[#091F5C] sm:text-lg">
+            <div className="flex items-start justify-between gap-2.5">
+              {activeFacility.photo_url && (
+                <img
+                  src={activeFacility.photo_url}
+                  alt={activeFacility.name}
+                  className="h-14 w-16 shrink-0 rounded-xl border border-[#D0E4FE] object-cover"
+                />
+              )}
+              <div className="min-w-0 flex-1">
+                <h2 className="truncate text-base font-extrabold text-[#091F5C] sm:text-lg">
                   {activeFacility.name}
                 </h2>
                 <p className="text-xs font-medium text-[#7096D1]">
@@ -316,6 +389,7 @@ export function MapExplorerView({
               </p>
             )}
 
+            {/* 3 Square Action Tiles matching Reference 1 Right Bottom Sheet */}
             <div className="mt-3.5 grid grid-cols-3 gap-2.5">
               <button
                 type="button"

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { App as CapApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 import { CheckCircle2, Copy, Download, Smartphone, X } from 'lucide-react';
 import { AddFacilityModal } from './components/AddFacilityModal';
 import { BottomNavBar } from './components/BottomNavBar';
@@ -14,9 +16,11 @@ import {
   createFacility,
   deleteFacility,
   getConditionLogs,
+  getDataConnectionMode,
   getDusunList,
   getFacilities,
   updateFacilityCondition,
+  type DataConnectionMode,
 } from './services/inventoryService';
 import type {
   CreateWaterFacilityInput,
@@ -43,6 +47,12 @@ export default function App() {
   const [facilities, setFacilities] = useState<WaterFacility[]>([]);
   const [conditionLogs, setConditionLogs] = useState<FacilityConditionLog[]>([]);
   const [selectedMapFacility, setSelectedMapFacility] = useState<WaterFacility | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [connectionMode, setConnectionMode] = useState<DataConnectionMode>(
+    isSupabaseConfigured ? 'cloud' : 'offline'
+  );
+  const isNativeApp = Capacitor.isNativePlatform();
 
   const [conditionModalFacility, setConditionModalFacility] = useState<WaterFacility | null>(null);
   const [isConditionModalOpen, setIsConditionModalOpen] = useState(false);
@@ -79,45 +89,79 @@ export default function App() {
   }, []);
 
   const loadAllData = useCallback(async () => {
-    const [dusunData, facilityData, logsData] = await Promise.all([
-      getDusunList(),
-      getFacilities(),
-      getConditionLogs(),
-    ]);
-    setDusunList(dusunData);
-    setFacilities(facilityData);
-    setConditionLogs(logsData);
-    setSelectedMapFacility((prev) => {
-      if (prev) {
-        return facilityData.find((f) => f.id === prev.id) ?? facilityData[0] ?? null;
-      }
-      return facilityData[0] ?? null;
-    });
-    if (!deepLinkHandledRef.current) {
-      deepLinkHandledRef.current = true;
-      const params = new URLSearchParams(window.location.search);
-      const action = params.get('action');
-      const codeParam = params.get('code');
-      if (action === 'lapor') {
-        const matched = codeParam
-          ? facilityData.find((f) => f.code.toLowerCase() === codeParam.toLowerCase())
-          : facilityData[0];
-        if (matched) {
-          setConditionModalFacility(matched);
-          setIsConditionModalOpen(true);
-        } else if (facilityData.length === 0) {
-          setIsAddModalOpen(true);
-        } else {
-          setConditionModalFacility(facilityData[0] ?? null);
-          setIsConditionModalOpen(true);
+    try {
+      const [dusunData, facilityData, logsData] = await Promise.all([
+        getDusunList(),
+        getFacilities(),
+        getConditionLogs(),
+      ]);
+      setDusunList(dusunData);
+      setFacilities(facilityData);
+      setConditionLogs(logsData);
+      setConnectionMode(getDataConnectionMode());
+      setSelectedMapFacility((prev) => {
+        if (prev) {
+          return facilityData.find((f) => f.id === prev.id) ?? facilityData[0] ?? null;
+        }
+        return facilityData[0] ?? null;
+      });
+      if (!deepLinkHandledRef.current) {
+        deepLinkHandledRef.current = true;
+        const params = new URLSearchParams(window.location.search);
+        const action = params.get('action');
+        const codeParam = params.get('code');
+        if (action === 'lapor') {
+          const matched = codeParam
+            ? facilityData.find((f) => f.code.toLowerCase() === codeParam.toLowerCase())
+            : facilityData[0];
+          if (matched) {
+            setConditionModalFacility(matched);
+            setIsConditionModalOpen(true);
+          } else if (facilityData.length === 0) {
+            setIsAddModalOpen(true);
+          } else {
+            setConditionModalFacility(facilityData[0] ?? null);
+            setIsConditionModalOpen(true);
+          }
         }
       }
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
     void loadAllData();
   }, [loadAllData]);
+
+  useEffect(() => {
+    if (!isNativeApp) return;
+    const listenerPromise = CapApp.addListener('backButton', () => {
+      if (isConditionModalOpen) {
+        setIsConditionModalOpen(false);
+      } else if (isAddModalOpen) {
+        setIsAddModalOpen(false);
+      } else if (isWebGisModalOpen) {
+        setIsWebGisModalOpen(false);
+      } else if (isInstallGuideOpen) {
+        setIsInstallGuideOpen(false);
+      } else if (activeTab !== 'dashboard') {
+        setActiveTab('dashboard');
+      } else {
+        void CapApp.exitApp();
+      }
+    });
+    return () => {
+      void listenerPromise.then((handle) => handle.remove());
+    };
+  }, [
+    isNativeApp,
+    isConditionModalOpen,
+    isAddModalOpen,
+    isWebGisModalOpen,
+    isInstallGuideOpen,
+    activeTab,
+  ]);
 
   const stats = computeSummaryStats(facilities);
 
@@ -163,13 +207,33 @@ export default function App() {
   };
 
   const handleExportExcel = async () => {
-    await exportInventoryToExcel(facilities, dusunList, 'Desa_Kalikayen_Ungaran_Timur');
-    showToast('Laporan Excel (.xlsx) Desa Kalikayen berhasil diunduh.');
+    try {
+      const result = await exportInventoryToExcel(
+        facilities,
+        dusunList,
+        'Desa_Kalikayen_Ungaran_Timur'
+      );
+      showToast(
+        result === 'shared'
+          ? 'Laporan Excel (.xlsx) siap disimpan atau dibagikan.'
+          : 'Laporan Excel (.xlsx) Desa Kalikayen berhasil diunduh.'
+      );
+    } catch {
+      showToast('Gagal mengekspor laporan Excel.');
+    }
   };
 
-  const handleExportGeoJson = () => {
-    exportFacilitiesToGeoJson(facilities, dusunList);
-    showToast('Layer GeoJSON (.geojson) WGS84 untuk WebGIS Desa berhasil diunduh.');
+  const handleExportGeoJson = async () => {
+    try {
+      const result = await exportFacilitiesToGeoJson(facilities, dusunList);
+      showToast(
+        result === 'shared'
+          ? 'Layer GeoJSON (.geojson) siap disimpan atau dibagikan.'
+          : 'Layer GeoJSON (.geojson) WGS84 untuk WebGIS Desa berhasil diunduh.'
+      );
+    } catch {
+      showToast('Gagal mengekspor layer GeoJSON.');
+    }
   };
 
   const handleSaveWebGisPortalUrl = (url: string) => {
@@ -188,8 +252,17 @@ export default function App() {
   };
 
   const handleSyncData = async () => {
-    await loadAllData();
-    showToast('Data terbaru dari Supabase Cloud berhasil disinkronkan.');
+    setIsSyncing(true);
+    try {
+      await loadAllData();
+      showToast(
+        getDataConnectionMode() === 'cloud'
+          ? 'Data terbaru dari Supabase Cloud berhasil disinkronkan.'
+          : 'Tidak ada koneksi internet. Menampilkan cache lokal perangkat.'
+      );
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const handleInstallApp = async () => {
@@ -198,7 +271,7 @@ export default function App() {
       const choice = await deferredInstallPrompt.userChoice;
       if (choice.outcome === 'accepted') {
         setDeferredInstallPrompt(null);
-        showToast('Aplikasi SI-AIR Kalikayen berhasil di-install!');
+        showToast('Aplikasi AIRLOG Kalikayen berhasil di-install!');
       }
       return;
     }
@@ -232,15 +305,20 @@ export default function App() {
           facilities={facilities}
           dusunList={dusunList}
           isSupabaseReady={isSupabaseConfigured}
+          isLoading={isLoading}
+          isSyncing={isSyncing}
+          connectionMode={connectionMode}
+          isNativeApp={isNativeApp}
           webGisPortalUrl={webGisPortalUrl}
           onNavigateTab={handleNavigateTab}
           onOpenAddModal={() => setIsAddModalOpen(true)}
           onOpenUpdateModal={(facility) => handleOpenUpdateModal(facility)}
           onSelectFacilityOnMap={handleSelectFacilityOnMap}
           onExportExcel={() => void handleExportExcel()}
-          onExportGeoJson={handleExportGeoJson}
+          onExportGeoJson={() => void handleExportGeoJson()}
           onOpenWebGisModal={() => setIsWebGisModalOpen(true)}
           onInstallApp={() => void handleInstallApp()}
+          onSyncData={() => void handleSyncData()}
         />
       )}
 
@@ -265,7 +343,7 @@ export default function App() {
           onSelectFacilityOnMap={handleSelectFacilityOnMap}
           onDeleteFacility={(id) => void handleDeleteFacility(id)}
           onExportExcel={() => void handleExportExcel()}
-          onExportGeoJson={handleExportGeoJson}
+          onExportGeoJson={() => void handleExportGeoJson()}
         />
       )}
 
@@ -275,7 +353,7 @@ export default function App() {
           facilities={facilities}
           conditionLogs={conditionLogs}
           onExportExcel={() => void handleExportExcel()}
-          onExportGeoJson={handleExportGeoJson}
+          onExportGeoJson={() => void handleExportGeoJson()}
           onResetDemoData={() => void handleSyncData()}
         />
       )}
@@ -311,7 +389,7 @@ export default function App() {
           facilityCount={facilities.length}
           webgisUrl={webGisPortalUrl}
           onSaveWebgisUrl={handleSaveWebGisPortalUrl}
-          onExportGeoJson={handleExportGeoJson}
+          onExportGeoJson={() => void handleExportGeoJson()}
           onTriggerPwaInstall={() => void handleInstallApp()}
           onClose={() => setIsWebGisModalOpen(false)}
         />
@@ -327,7 +405,7 @@ export default function App() {
                 </div>
                 <div>
                   <h2 className="text-base font-extrabold text-[#091F5C]">
-                    Cara Install Aplikasi SI-AIR
+                    Cara Install Aplikasi AIRLOG
                   </h2>
                   <p className="text-xs text-[#7096D1]">
                     Pasang di Layar Utama HP Android, iPhone, atau Laptop
@@ -362,7 +440,7 @@ export default function App() {
                     className="inline-flex items-center gap-1.5 rounded-full bg-[#091F5C] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#334DAF]"
                   >
                     <Download className="h-3.5 w-3.5 text-[#D0E4FE]" />
-                    Unduh AIRLOG-Desa-Kalikayen.apk (4.3 MB)
+                    Unduh AIRLOG-Desa-Kalikayen.apk
                   </a>
                   <a
                     href="https://github.com/zephyrusrothstaylor-maker/airlog-desa-kalikayen"

@@ -31,7 +31,7 @@ export function DusunAnalyticsView({
 
   return (
     <div className="min-h-screen bg-[#F9FBFF] pb-28">
-      <header className="border-b border-[#D0E4FE] bg-white px-4 py-5 sm:px-8">
+      <header className="border-b border-[#D0E4FE] bg-white px-4 pb-5 pt-[max(1.25rem,env(safe-area-inset-top))] sm:px-8">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-lg font-extrabold text-[#091F5C] sm:text-xl">
@@ -72,6 +72,7 @@ export function DusunAnalyticsView({
       </header>
 
       <div className="mx-auto max-w-5xl space-y-8 px-4 pt-6 sm:px-8">
+        {/* Per-Dusun Breakdown Grid */}
         <section>
           <div className="mb-3 flex items-center gap-2">
             <Building2 className="h-4 w-4 text-[#334DAF]" />
@@ -120,6 +121,7 @@ export function DusunAnalyticsView({
                     )}
                   </div>
 
+                  {/* 4 Mini Condition Counters */}
                   <div className="mt-4 grid grid-cols-4 gap-2 text-center">
                     <div className="rounded-2xl bg-emerald-50 p-2">
                       <span className="block text-lg font-extrabold text-emerald-800">{baik}</span>
@@ -143,6 +145,7 @@ export function DusunAnalyticsView({
                     </div>
                   </div>
 
+                  {/* KK Coverage Progress Bar */}
                   <div className="mt-4">
                     <div className="flex items-center justify-between text-xs">
                       <span className="inline-flex items-center gap-1 font-semibold text-[#091F5C]">
@@ -166,6 +169,7 @@ export function DusunAnalyticsView({
           </div>
         </section>
 
+        {/* Inspection Audit Log */}
         <section>
           <div className="mb-3 flex items-center gap-2">
             <History className="h-4 w-4 text-[#334DAF]" />
