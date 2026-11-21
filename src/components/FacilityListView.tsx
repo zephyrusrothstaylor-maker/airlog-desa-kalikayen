@@ -1,16 +1,22 @@
 import { useMemo, useState } from 'react';
 import {
+  ArrowUpDown,
   ClipboardCheck,
   ExternalLink,
   FileJson,
   FileSpreadsheet,
   MapPin,
+  Pencil,
+  Phone,
   Plus,
   RotateCcw,
   Search,
+  Share2,
   SlidersHorizontal,
   Trash2,
   Users,
+  X,
+  ZoomIn,
 } from 'lucide-react';
 import {
   FACILITY_CATEGORY_LABELS,
@@ -19,20 +25,35 @@ import {
   WATER_CLARITY_LABELS,
   type Dusun,
   type FacilityCategory,
+  type PhotoPreviewData,
+  type PhysicalCondition,
   type WaterFacility,
 } from '../types/inventory';
+import { buildGoogleMapsUrl, buildWhatsappChatUrl } from '../utils/whatsappShare';
 import { CategoryIcon, ConditionBadge, getCategoryLabel } from './ConditionBadge';
+
+type SortOption = 'code' | 'priority' | 'latest' | 'kk';
+
+const CONDITION_PRIORITY: Record<PhysicalCondition, number> = {
+  rusak_berat: 0,
+  rusak_ringan: 1,
+  kering: 2,
+  berfungsi_baik: 3,
+};
 
 interface FacilityListViewProps {
   facilities: WaterFacility[];
   dusunList: Dusun[];
   initialConditionFilter?: string;
   onOpenUpdateModal: (facility: WaterFacility) => void;
+  onOpenEditModal: (facility: WaterFacility) => void;
   onOpenAddModal: () => void;
   onSelectFacilityOnMap: (facility: WaterFacility) => void;
   onDeleteFacility: (facilityId: string) => void;
   onExportExcel: () => void;
   onExportGeoJson: () => void;
+  onShareFacility: (facility: WaterFacility) => void;
+  onPreviewPhoto: (photo: PhotoPreviewData) => void;
 }
 
 export function FacilityListView({
@@ -40,20 +61,24 @@ export function FacilityListView({
   dusunList,
   initialConditionFilter = 'all',
   onOpenUpdateModal,
+  onOpenEditModal,
   onOpenAddModal,
   onSelectFacilityOnMap,
   onDeleteFacility,
   onExportExcel,
   onExportGeoJson,
+  onShareFacility,
+  onPreviewPhoto,
 }: FacilityListViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDusun, setSelectedDusun] = useState<string>('all');
   const [selectedCondition, setSelectedCondition] = useState<string>(initialConditionFilter);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<SortOption>('code');
   const [pendingDeleteFacility, setPendingDeleteFacility] = useState<WaterFacility | null>(null);
 
   const filteredFacilities = useMemo(() => {
-    return facilities.filter((item) => {
+    const filtered = facilities.filter((item) => {
       if (selectedDusun !== 'all' && item.dusun_id !== selectedDusun) {
         return false;
       }
@@ -69,11 +94,28 @@ export function FacilityListView({
         const matchesCode = item.code.toLowerCase().includes(q);
         const matchesAddress = (item.address_detail ?? '').toLowerCase().includes(q);
         const matchesDusun = (item.dusun_name ?? '').toLowerCase().includes(q);
-        return matchesName || matchesCode || matchesAddress || matchesDusun;
+        const matchesManager = (item.manager_name ?? '').toLowerCase().includes(q);
+        return matchesName || matchesCode || matchesAddress || matchesDusun || matchesManager;
       }
       return true;
     });
-  }, [facilities, searchQuery, selectedDusun, selectedCondition, selectedCategory]);
+
+    return [...filtered].sort((a, b) => {
+      if (sortBy === 'priority') {
+        const diff = CONDITION_PRIORITY[a.condition] - CONDITION_PRIORITY[b.condition];
+        return diff !== 0 ? diff : a.code.localeCompare(b.code);
+      }
+      if (sortBy === 'latest') {
+        return (
+          new Date(b.last_inspected_at).getTime() - new Date(a.last_inspected_at).getTime()
+        );
+      }
+      if (sortBy === 'kk') {
+        return (b.beneficiary_kk || 0) - (a.beneficiary_kk || 0);
+      }
+      return a.code.localeCompare(b.code);
+    });
+  }, [facilities, searchQuery, selectedDusun, selectedCondition, selectedCategory, sortBy]);
 
   const conditionFilters: Array<{ value: string; label: string }> = [
     { value: 'all', label: 'Semua Kondisi' },
@@ -141,19 +183,29 @@ export function FacilityListView({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Cari nama titik air, kode (AIR-KKY-...), atau patokan lokasi..."
-                className="w-full rounded-full border border-[#D0E4FE] bg-white py-2.5 pl-10 pr-4 text-sm text-[#091F5C] placeholder-[#7096D1] shadow-sm focus:border-[#334DAF] focus:outline-none"
+                placeholder="Cari nama titik air, kode (AIR-KKY-...), pengelola, atau lokasi..."
+                className="w-full rounded-full border border-[#D0E4FE] bg-white py-2.5 pl-10 pr-9 text-sm text-[#091F5C] placeholder-[#7096D1] shadow-sm focus:border-[#334DAF] focus:outline-none"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  aria-label="Hapus kata kunci pencarian"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-[#E8F2FE] p-1 text-[#334DAF] hover:bg-[#D0E4FE]"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
 
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1 sm:w-48">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative min-w-[155px] flex-1 sm:w-44 sm:flex-initial">
                 <SlidersHorizontal className="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#334DAF]" />
                 <select
                   aria-label="Filter Jenis Fasilitas"
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full appearance-none rounded-full border border-[#D0E4FE] bg-white py-2.5 pl-9 pr-8 text-xs font-semibold text-[#091F5C] shadow-sm focus:border-[#334DAF] focus:outline-none"
+                  className="w-full appearance-none rounded-full border border-[#D0E4FE] bg-white py-2.5 pl-9 pr-4 text-xs font-semibold text-[#091F5C] shadow-sm focus:border-[#334DAF] focus:outline-none"
                 >
                   <option value="all">Semua Jenis Sumber</option>
                   {(Object.keys(FACILITY_CATEGORY_LABELS) as FacilityCategory[]).map((cat) => (
@@ -161,6 +213,21 @@ export function FacilityListView({
                       {FACILITY_CATEGORY_LABELS[cat]}
                     </option>
                   ))}
+                </select>
+              </div>
+
+              <div className="relative min-w-[140px] flex-1 sm:w-40 sm:flex-initial">
+                <ArrowUpDown className="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#334DAF]" />
+                <select
+                  aria-label="Urutkan Daftar"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortOption)}
+                  className="w-full appearance-none rounded-full border border-[#D0E4FE] bg-white py-2.5 pl-9 pr-4 text-xs font-semibold text-[#091F5C] shadow-sm focus:border-[#334DAF] focus:outline-none"
+                >
+                  <option value="code">Urut: Kode Titik</option>
+                  <option value="priority">Urut: Prioritas Rusak</option>
+                  <option value="latest">Urut: Update Terbaru</option>
+                  <option value="kk">Urut: KK Terbanyak</option>
                 </select>
               </div>
 
@@ -251,7 +318,11 @@ export function FacilityListView({
         ) : (
           <div className="space-y-3.5">
             {filteredFacilities.map((facility: WaterFacility) => {
-              const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${facility.latitude},${facility.longitude}`;
+              const googleMapsUrl = buildGoogleMapsUrl(facility.latitude, facility.longitude);
+              const managerWaUrl = buildWhatsappChatUrl(
+                facility.manager_phone,
+                `Halo ${facility.manager_name ?? 'Pengelola'}, terkait sarana air [${facility.code}] ${facility.name} (${facility.dusun_name ?? 'Desa Kalikayen'}).`
+              );
               return (
                 <article
                   key={facility.id}
@@ -264,7 +335,7 @@ export function FacilityListView({
                         <CategoryIcon category={facility.category} className="h-6 w-6" />
                       </div>
 
-                      <div className="space-y-1">
+                      <div className="min-w-0 space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="rounded-lg bg-[#D0E4FE] px-2.5 py-0.5 font-mono text-xs font-bold text-[#091F5C]">
                             {facility.code}
@@ -299,7 +370,7 @@ export function FacilityListView({
                         </div>
 
                         {facility.condition_notes && (
-                          <div className="mt-2 rounded-2xl bg-[#F9FBFF] px-3.5 py-2 text-xs text-[#091F5C] border border-[#E8F2FE]">
+                          <div className="mt-2 rounded-2xl border border-[#E8F2FE] bg-[#F9FBFF] px-3.5 py-2 text-xs text-[#091F5C]">
                             <span className="font-bold text-[#334DAF]">Catatan Kondisi: </span>
                             {facility.condition_notes}
                           </div>
@@ -307,46 +378,91 @@ export function FacilityListView({
 
                         {facility.photo_url && (
                           <div className="mt-2">
-                            <img
-                              src={facility.photo_url}
-                              alt={facility.name}
-                              className="h-28 w-44 rounded-2xl border border-[#D0E4FE] object-cover"
-                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                onPreviewPhoto({
+                                  src: facility.photo_url!,
+                                  title: `[${facility.code}] ${facility.name}`,
+                                  subtitle: `${facility.dusun_name ?? 'Desa Kalikayen'} • ${PHYSICAL_CONDITION_LABELS[facility.condition]}`,
+                                })
+                              }
+                              className="group/photo relative overflow-hidden rounded-2xl border border-[#D0E4FE] transition hover:ring-2 hover:ring-[#334DAF]"
+                            >
+                              <img
+                                src={facility.photo_url}
+                                alt={facility.name}
+                                className="h-28 w-44 object-cover"
+                              />
+                              <span className="absolute bottom-1.5 right-1.5 inline-flex items-center gap-1 rounded-full bg-[#091F5C]/80 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-xs">
+                                <ZoomIn className="h-3 w-3" />
+                                Perbesar
+                              </span>
+                            </button>
                           </div>
                         )}
 
-                        <p className="pt-1 text-[11px] text-[#7096D1]">
-                          Diperiksa oleh{' '}
-                          <strong className="text-[#091F5C]">{facility.last_inspected_by}</strong> •{' '}
-                          {new Date(facility.last_inspected_at).toLocaleDateString('id-ID', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric',
-                          })}
-                          {facility.funding_source ? ` • Sumber: ${facility.funding_source}` : ''}
-                        </p>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[11px] text-[#7096D1]">
+                          <span>
+                            Diperiksa{' '}
+                            <strong className="text-[#091F5C]">{facility.last_inspected_by}</strong> •{' '}
+                            {new Date(facility.last_inspected_at).toLocaleDateString('id-ID', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                            })}
+                            {facility.funding_source ? ` • Sumber: ${facility.funding_source}` : ''}
+                          </span>
+                          {facility.manager_name && (
+                            <span>
+                              • Pengelola: <strong className="text-[#091F5C]">{facility.manager_name}</strong>
+                            </span>
+                          )}
+                          {managerWaUrl && (
+                            <a
+                              href={managerWaUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 font-bold text-emerald-700 hover:underline"
+                            >
+                              <Phone className="h-3 w-3" />
+                              WA Pengelola
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </div>
 
                     {/* Right Action Pill Buttons */}
-                    <div className="flex flex-wrap items-center gap-2 sm:flex-col sm:items-end">
-                      <button
-                        type="button"
-                        onClick={() => onOpenUpdateModal(facility)}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-[#334DAF] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#091F5C]"
-                      >
-                        <ClipboardCheck className="h-3.5 w-3.5" />
-                        Input Kondisi
-                      </button>
+                    <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:flex-col sm:items-end">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => onOpenUpdateModal(facility)}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-[#334DAF] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#091F5C]"
+                        >
+                          <ClipboardCheck className="h-3.5 w-3.5" />
+                          Input Kondisi
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onOpenEditModal(facility)}
+                          title="Edit info & koordinat titik air"
+                          className="inline-flex items-center gap-1 rounded-full border border-[#D0E4FE] bg-white px-3 py-2 text-xs font-bold text-[#091F5C] transition hover:bg-[#E8F2FE]"
+                        >
+                          <Pencil className="h-3.5 w-3.5 text-[#334DAF]" />
+                          Edit
+                        </button>
+                      </div>
 
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => onSelectFacilityOnMap(facility)}
                           className="inline-flex items-center gap-1 rounded-full bg-[#D0E4FE] px-3 py-1.5 text-xs font-bold text-[#091F5C] transition hover:bg-[#7096D1] hover:text-white"
                         >
                           <MapPin className="h-3.5 w-3.5" />
-                          Peta Desa
+                          Peta
                         </button>
 
                         <a
@@ -358,6 +474,16 @@ export function FacilityListView({
                           <ExternalLink className="h-3.5 w-3.5" />
                           Rute
                         </a>
+
+                        <button
+                          type="button"
+                          onClick={() => onShareFacility(facility)}
+                          title="Bagikan laporan ke WhatsApp / perangkat"
+                          className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 transition hover:bg-emerald-100"
+                        >
+                          <Share2 className="h-3.5 w-3.5" />
+                          Bagikan
+                        </button>
 
                         <button
                           type="button"

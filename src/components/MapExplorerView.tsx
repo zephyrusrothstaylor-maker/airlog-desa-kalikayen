@@ -8,13 +8,19 @@ import {
   ExternalLink,
   Layers,
   LocateFixed,
+  Maximize2,
+  Minus,
   Navigation,
+  Pencil,
   Plus,
+  Share2,
   Users,
 } from 'lucide-react';
 import { captureCurrentGpsPosition } from '../utils/geolocation';
+import { buildGoogleMapsUrl } from '../utils/whatsappShare';
 import {
   PHYSICAL_CONDITION_LABELS,
+  type PhotoPreviewData,
   type PhysicalCondition,
   type WaterFacility,
 } from '../types/inventory';
@@ -25,7 +31,10 @@ interface MapExplorerViewProps {
   selectedFacility: WaterFacility | null;
   onSelectFacility: (facility: WaterFacility) => void;
   onOpenUpdateModal: (facility: WaterFacility) => void;
+  onOpenEditModal: (facility: WaterFacility) => void;
   onOpenAddModal: () => void;
+  onShareFacility: (facility: WaterFacility) => void;
+  onPreviewPhoto: (photo: PhotoPreviewData) => void;
 }
 
 function createPinIcon(condition: PhysicalCondition, isSelected: boolean): L.DivIcon {
@@ -57,7 +66,10 @@ export function MapExplorerView({
   selectedFacility,
   onSelectFacility,
   onOpenUpdateModal,
+  onOpenEditModal,
   onOpenAddModal,
+  onShareFacility,
+  onPreviewPhoto,
 }: MapExplorerViewProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -69,6 +81,20 @@ export function MapExplorerView({
   const [conditionFilter, setConditionFilter] = useState<string>('all');
   const [isLocatingUser, setIsLocatingUser] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
+
+  const conditionCounts = useMemo(() => {
+    const counts = {
+      all: facilities.length,
+      berfungsi_baik: 0,
+      rusak_ringan: 0,
+      rusak_berat: 0,
+      kering: 0,
+    };
+    facilities.forEach((f) => {
+      counts[f.condition] += 1;
+    });
+    return counts;
+  }, [facilities]);
 
   const visibleFacilities = useMemo(() => {
     if (conditionFilter === 'all') return facilities;
@@ -82,21 +108,20 @@ export function MapExplorerView({
     return visibleFacilities[0] ?? null;
   }, [selectedFacility, visibleFacilities]);
 
-  // Initialize Leaflet Map
+  // Initialize Leaflet Map (kontrol zoom dipindah ke custom tombol kanan agar tidak tertutup header)
   useEffect(() => {
-    if (!mapContainerRef.current || mapInstanceRef.current) return;
+    const container = mapContainerRef.current;
+    if (!container || mapInstanceRef.current) return;
 
     const initialCenter: [number, number] = activeFacility
       ? [activeFacility.latitude, activeFacility.longitude]
       : [-7.0892, 110.4669];
 
-    const map = L.map(mapContainerRef.current, {
+    const map = L.map(container, {
       center: initialCenter,
       zoom: 15,
       zoomControl: false,
     });
-
-    L.control.zoom({ position: 'topright' }).addTo(map);
 
     const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
@@ -111,7 +136,15 @@ export function MapExplorerView({
     markersLayerRef.current = markersGroup;
     userLocationLayerRef.current = userLocGroup;
 
+    const resizeObserver = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    resizeObserver.observe(container);
+
+    window.setTimeout(() => map.invalidateSize(), 150);
+
     return () => {
+      resizeObserver.disconnect();
       map.remove();
       mapInstanceRef.current = null;
       tileLayerRef.current = null;
@@ -185,6 +218,24 @@ export function MapExplorerView({
     onSelectFacility(visibleFacilities[nextIndex]);
   };
 
+  const handleFitAllFacilities = () => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    if (visibleFacilities.length === 0) {
+      map.flyTo([-7.0892, 110.4669], 15, { duration: 0.6 });
+      return;
+    }
+    if (visibleFacilities.length === 1) {
+      const only = visibleFacilities[0];
+      map.flyTo([only.latitude, only.longitude], 16, { duration: 0.6 });
+      return;
+    }
+    const bounds = L.latLngBounds(
+      visibleFacilities.map((f) => [f.latitude, f.longitude] as [number, number])
+    );
+    map.fitBounds(bounds, { paddingTopLeft: [40, 140], paddingBottomRight: [56, 260], maxZoom: 17 });
+  };
+
   const handleCenterOnUserLocation = async () => {
     setIsLocatingUser(true);
     setGpsError(null);
@@ -240,15 +291,6 @@ export function MapExplorerView({
           <div className="flex shrink-0 items-center gap-1.5">
             <button
               type="button"
-              onClick={() => void handleCenterOnUserLocation()}
-              disabled={isLocatingUser}
-              title="Lokasi GPS Saya"
-              className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/15 text-white transition hover:bg-white/25 disabled:opacity-60"
-            >
-              <LocateFixed className={`h-4 w-4 ${isLocatingUser ? 'animate-pulse text-[#D0E4FE]' : ''}`} />
-            </button>
-            <button
-              type="button"
               onClick={() => setMapStyle((prev) => (prev === 'osm' ? 'satellite' : 'osm'))}
               className="inline-flex items-center gap-1 rounded-xl bg-white/15 px-2.5 py-1.5 text-xs font-bold text-white transition hover:bg-white/25"
             >
@@ -275,11 +317,26 @@ export function MapExplorerView({
         {/* Floating Legend / Filter Pills */}
         <div className="pointer-events-auto mt-2 flex flex-wrap items-center gap-1.5">
           {[
-            { id: 'all', label: 'Semua', dot: 'bg-[#334DAF]' },
-            { id: 'berfungsi_baik', label: 'Baik', dot: 'bg-emerald-500' },
-            { id: 'rusak_ringan', label: 'Rusak Ringan', dot: 'bg-amber-500' },
-            { id: 'rusak_berat', label: 'Rusak Berat', dot: 'bg-rose-500' },
-            { id: 'kering', label: 'Kering', dot: 'bg-slate-500' },
+            { id: 'all', label: 'Semua', count: conditionCounts.all, dot: 'bg-[#334DAF]' },
+            {
+              id: 'berfungsi_baik',
+              label: 'Baik',
+              count: conditionCounts.berfungsi_baik,
+              dot: 'bg-emerald-500',
+            },
+            {
+              id: 'rusak_ringan',
+              label: 'R. Ringan',
+              count: conditionCounts.rusak_ringan,
+              dot: 'bg-amber-500',
+            },
+            {
+              id: 'rusak_berat',
+              label: 'R. Berat',
+              count: conditionCounts.rusak_berat,
+              dot: 'bg-rose-500',
+            },
+            { id: 'kering', label: 'Kering', count: conditionCounts.kering, dot: 'bg-slate-500' },
           ].map((item) => (
             <button
               key={item.id}
@@ -292,7 +349,7 @@ export function MapExplorerView({
               }`}
             >
               <span className={`h-2 w-2 rounded-full ${item.dot}`} />
-              {item.label}
+              {item.label} ({item.count})
             </button>
           ))}
         </div>
@@ -300,6 +357,47 @@ export function MapExplorerView({
 
       {/* Interactive Leaflet Map Canvas */}
       <div ref={mapContainerRef} className="h-full w-full flex-1" />
+
+      {/* Kontrol Zoom, Fit Semua Titik & GPS Sisi Kanan (bebas tumpang tindih header/bottom-sheet) */}
+      <div className="absolute right-3 top-1/2 z-20 flex -translate-y-1/2 flex-col gap-1.5">
+        <button
+          type="button"
+          onClick={() => mapInstanceRef.current?.zoomIn()}
+          title="Perbesar Peta"
+          aria-label="Perbesar Peta"
+          className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[#D0E4FE] bg-white/95 text-[#091F5C] shadow-float transition hover:bg-[#E8F2FE]"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => mapInstanceRef.current?.zoomOut()}
+          title="Perkecil Peta"
+          aria-label="Perkecil Peta"
+          className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[#D0E4FE] bg-white/95 text-[#091F5C] shadow-float transition hover:bg-[#E8F2FE]"
+        >
+          <Minus className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => void handleCenterOnUserLocation()}
+          disabled={isLocatingUser}
+          title="Lokasi GPS Saya"
+          aria-label="Lokasi GPS Saya"
+          className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[#D0E4FE] bg-[#334DAF] text-white shadow-float transition hover:bg-[#091F5C] disabled:opacity-60"
+        >
+          <LocateFixed className={`h-4 w-4 ${isLocatingUser ? 'animate-pulse text-[#D0E4FE]' : ''}`} />
+        </button>
+        <button
+          type="button"
+          onClick={handleFitAllFacilities}
+          title="Tampilkan Semua Titik"
+          aria-label="Tampilkan Semua Titik"
+          className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[#D0E4FE] bg-white/95 text-[#091F5C] shadow-float transition hover:bg-[#E8F2FE]"
+        >
+          <Maximize2 className="h-4 w-4" />
+        </button>
+      </div>
 
       {/* Reference 1 Right Screen: Layered Rounded Bottom Sheet */}
       {!activeFacility ? (
@@ -338,6 +436,24 @@ export function MapExplorerView({
               <div className="flex items-center gap-1">
                 <button
                   type="button"
+                  onClick={() => onShareFacility(activeFacility)}
+                  title="Bagikan Laporan WA"
+                  aria-label="Bagikan Laporan WA"
+                  className="rounded-lg bg-white/15 p-1 text-white hover:bg-white/25"
+                >
+                  <Share2 className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenEditModal(activeFacility)}
+                  title="Edit Info Titik"
+                  aria-label="Edit Info Titik"
+                  className="rounded-lg bg-white/15 p-1 text-white hover:bg-white/25"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleCycleFacility(-1)}
                   title="Titik Sebelumnya"
                   className="rounded-lg bg-white/15 p-1 text-white hover:bg-white/25"
@@ -356,15 +472,28 @@ export function MapExplorerView({
             </div>
           </div>
 
-          {/* Inner White Card (Matches Reference 1's Workplace card with 3 square tiles) */}
+          {/* Inner White Card */}
           <div className="-mt-4 rounded-[26px] border border-[#D0E4FE] bg-[#F9FBFF] p-4 shadow-float sm:p-5">
             <div className="flex items-start justify-between gap-2.5">
               {activeFacility.photo_url && (
-                <img
-                  src={activeFacility.photo_url}
-                  alt={activeFacility.name}
-                  className="h-14 w-16 shrink-0 rounded-xl border border-[#D0E4FE] object-cover"
-                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    onPreviewPhoto({
+                      src: activeFacility.photo_url!,
+                      title: `[${activeFacility.code}] ${activeFacility.name}`,
+                      subtitle: activeFacility.dusun_name,
+                    })
+                  }
+                  title="Ketuk untuk memperbesar foto"
+                  className="shrink-0 overflow-hidden rounded-xl border border-[#D0E4FE] transition hover:ring-2 hover:ring-[#334DAF]"
+                >
+                  <img
+                    src={activeFacility.photo_url}
+                    alt={activeFacility.name}
+                    className="h-14 w-16 object-cover"
+                  />
+                </button>
               )}
               <div className="min-w-0 flex-1">
                 <h2 className="truncate text-base font-extrabold text-[#091F5C] sm:text-lg">
@@ -420,7 +549,7 @@ export function MapExplorerView({
               </button>
 
               <a
-                href={`https://www.google.com/maps/search/?api=1&query=${activeFacility.latitude},${activeFacility.longitude}`}
+                href={buildGoogleMapsUrl(activeFacility.latitude, activeFacility.longitude)}
                 target="_blank"
                 rel="noreferrer"
                 className="flex flex-col items-center justify-center rounded-2xl border border-[#D0E4FE] bg-white p-3 text-center shadow-sm transition hover:border-[#334DAF] hover:bg-[#E8F2FE]"

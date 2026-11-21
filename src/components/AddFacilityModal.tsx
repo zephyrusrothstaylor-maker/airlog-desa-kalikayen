@@ -1,5 +1,5 @@
-import { useState, type ChangeEvent, type FormEvent } from 'react';
-import { Camera, LocateFixed, PlusCircle, X } from 'lucide-react';
+import { useState, type FormEvent } from 'react';
+import { LocateFixed, Pencil, PlusCircle, X } from 'lucide-react';
 import {
   FACILITY_CATEGORY_LABELS,
   PHYSICAL_CONDITION_LABELS,
@@ -11,53 +11,100 @@ import {
   type PhysicalCondition,
   type SeasonalAvailabilityStatus,
   type WaterClarityStatus,
+  type WaterFacility,
 } from '../types/inventory';
 import {
   captureCurrentGpsPosition,
   isValidIndonesianCoordinate,
 } from '../utils/geolocation';
-import { compressImageToWebP } from '../utils/imageCompressor';
+import { getSavedInspectorName, saveInspectorName } from '../utils/inspectorPrefs';
+import { PhotoUploadControl } from './PhotoUploadControl';
 
 interface AddFacilityModalProps {
   dusunList: Dusun[];
-  existingCount: number;
+  existingCodes: string[];
+  editingFacility?: WaterFacility | null;
   onClose: () => void;
   onCreateFacility: (input: CreateWaterFacilityInput) => Promise<void>;
+  onUpdateFacility?: (facilityId: string, input: CreateWaterFacilityInput) => Promise<void>;
+}
+
+function computeNextFacilityCode(existingCodes: string[]): string {
+  const maxNum = existingCodes.reduce((highest, raw) => {
+    const match = raw.trim().toUpperCase().match(/(\d+)$/);
+    if (!match) return highest;
+    const n = Number.parseInt(match[1], 10);
+    return Number.isFinite(n) && n > highest ? n : highest;
+  }, 0);
+  return `AIR-KKY-${String(maxNum + 1).padStart(3, '0')}`;
 }
 
 export function AddFacilityModal({
   dusunList,
-  existingCount,
+  existingCodes,
+  editingFacility = null,
   onClose,
   onCreateFacility,
+  onUpdateFacility,
 }: AddFacilityModalProps) {
-  const defaultDusunId = dusunList[0]?.id ?? '';
-  const nextNumber = String(existingCount + 1).padStart(3, '0');
+  const isEditMode = Boolean(editingFacility);
+  const defaultDusunId = editingFacility?.dusun_id ?? dusunList[0]?.id ?? '';
 
-  const [code, setCode] = useState(`AIR-KKY-${nextNumber}`);
-  const [name, setName] = useState('');
+  const [code, setCode] = useState(
+    editingFacility?.code ?? computeNextFacilityCode(existingCodes)
+  );
+  const [name, setName] = useState(editingFacility?.name ?? '');
   const [dusunId, setDusunId] = useState(defaultDusunId);
-  const [rt, setRt] = useState('001');
-  const [rw, setRw] = useState('001');
-  const [addressDetail, setAddressDetail] = useState('');
-  const [category, setCategory] = useState<FacilityCategory>('sumur_bor');
-  const [condition, setCondition] = useState<PhysicalCondition>('berfungsi_baik');
-  const [waterClarity, setWaterClarity] = useState<WaterClarityStatus>('jernih');
+  const [rt, setRt] = useState(editingFacility?.rt ?? '001');
+  const [rw, setRw] = useState(editingFacility?.rw ?? '001');
+  const [addressDetail, setAddressDetail] = useState(editingFacility?.address_detail ?? '');
+  const [category, setCategory] = useState<FacilityCategory>(
+    editingFacility?.category ?? 'sumur_bor'
+  );
+  const [condition, setCondition] = useState<PhysicalCondition>(
+    editingFacility?.condition ?? 'berfungsi_baik'
+  );
+  const [waterClarity, setWaterClarity] = useState<WaterClarityStatus>(
+    editingFacility?.water_clarity ?? 'jernih'
+  );
   const [seasonalAvailability, setSeasonalAvailability] =
-    useState<SeasonalAvailabilityStatus>('sepanjang_tahun');
-  const [conditionNotes, setConditionNotes] = useState('');
-  const [latitude, setLatitude] = useState('-7.08920');
-  const [longitude, setLongitude] = useState('110.46690');
-  const [elevationM, setElevationM] = useState('248');
-  const [beneficiaryKk, setBeneficiaryKk] = useState('45');
-  const [builtYear, setBuiltYear] = useState('2024');
-  const [fundingSource, setFundingSource] = useState('Dana Desa Kalikayen');
-  const [managerName, setManagerName] = useState('KP-SPAMS Tirta Kalikayen');
-  const [managerPhone, setManagerPhone] = useState('');
-  const [inspectorName, setInspectorName] = useState('Tim KKN & Perangkat Desa Kalikayen');
+    useState<SeasonalAvailabilityStatus>(
+      editingFacility?.seasonal_availability ?? 'sepanjang_tahun'
+    );
+  const [conditionNotes, setConditionNotes] = useState(editingFacility?.condition_notes ?? '');
+  const [latitude, setLatitude] = useState(
+    editingFacility ? String(editingFacility.latitude) : '-7.08920'
+  );
+  const [longitude, setLongitude] = useState(
+    editingFacility ? String(editingFacility.longitude) : '110.46690'
+  );
+  const [elevationM, setElevationM] = useState(
+    editingFacility?.elevation_m !== null && editingFacility?.elevation_m !== undefined
+      ? String(editingFacility.elevation_m)
+      : '248'
+  );
+  const [beneficiaryKk, setBeneficiaryKk] = useState(
+    editingFacility ? String(editingFacility.beneficiary_kk) : '45'
+  );
+  const [builtYear, setBuiltYear] = useState(
+    editingFacility?.built_year !== null && editingFacility?.built_year !== undefined
+      ? String(editingFacility.built_year)
+      : '2024'
+  );
+  const [fundingSource, setFundingSource] = useState(
+    editingFacility?.funding_source ?? 'Dana Desa Kalikayen'
+  );
+  const [managerName, setManagerName] = useState(
+    editingFacility?.manager_name ?? 'KP-SPAMS Tirta Kalikayen'
+  );
+  const [managerPhone, setManagerPhone] = useState(editingFacility?.manager_phone ?? '');
+  const [inspectorName, setInspectorName] = useState(
+    editingFacility?.last_inspected_by ?? getSavedInspectorName()
+  );
 
-  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
-  const [photoSizeKB, setPhotoSizeKB] = useState<number | null>(null);
+  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(
+    editingFacility?.photo_url ?? null
+  );
   const [isCompressingPhoto, setIsCompressingPhoto] = useState(false);
   const [gpsStatus, setGpsStatus] = useState<string | null>(null);
   const [isGettingGps, setIsGettingGps] = useState(false);
@@ -75,28 +122,12 @@ export function AddFacilityModal({
       if (coords.elevation_m !== null) {
         setElevationM(String(coords.elevation_m));
       }
-      setGpsStatus(`Titik GPS berhasil diambil (akurasi ±${coords.accuracy_m}m)`);
+      setGpsStatus(`Titik GPS berhasil diambil (akurasi +- ${coords.accuracy_m} m)`);
     } catch (err) {
       setGpsStatus(null);
       setErrorMsg(err instanceof Error ? err.message : 'Gagal mengambil koordinat GPS.');
     } finally {
       setIsGettingGps(false);
-    }
-  };
-
-  const handlePhotoUpload = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsCompressingPhoto(true);
-    setErrorMsg(null);
-    try {
-      const compressed = await compressImageToWebP(file);
-      setPhotoDataUrl(compressed.dataUrl);
-      setPhotoSizeKB(compressed.sizeKB);
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Gagal mengompresi foto.');
-    } finally {
-      setIsCompressingPhoto(false);
     }
   };
 
@@ -115,7 +146,8 @@ export function AddFacilityModal({
     setIsSubmitting(true);
     setErrorMsg(null);
     try {
-      await onCreateFacility({
+      saveInspectorName(inspectorName);
+      const payload: CreateWaterFacilityInput = {
         code,
         name,
         dusun_id: dusunId,
@@ -137,10 +169,16 @@ export function AddFacilityModal({
         manager_phone: managerPhone,
         photo_url: photoDataUrl,
         last_inspected_by: inspectorName,
-      });
+      };
+
+      if (editingFacility && onUpdateFacility) {
+        await onUpdateFacility(editingFacility.id, payload);
+      } else {
+        await onCreateFacility(payload);
+      }
       onClose();
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Gagal menambahkan titik air.');
+      setErrorMsg(err instanceof Error ? err.message : 'Gagal menyimpan data titik air.');
     } finally {
       setIsSubmitting(false);
     }
@@ -148,18 +186,22 @@ export function AddFacilityModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#091F5C]/60 p-0 backdrop-blur-xs sm:items-center sm:p-4">
-      <div className="max-h-[92dvh] w-full max-w-xl overflow-y-auto rounded-t-[32px] bg-[#F9FBFF] p-5 shadow-float sm:rounded-[32px] sm:p-6">
+      <div className="max-h-[92dvh] w-full max-w-xl overflow-y-auto rounded-t-[32px] bg-[#F9FBFF] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-float sm:rounded-[32px] sm:p-6">
         <div className="flex items-center justify-between border-b border-[#D0E4FE] pb-3.5">
           <div className="flex items-center gap-2.5">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#D0E4FE] text-[#091F5C]">
-              <PlusCircle className="h-5 w-5" />
+              {isEditMode ? <Pencil className="h-5 w-5" /> : <PlusCircle className="h-5 w-5" />}
             </div>
             <div>
               <h2 className="text-base font-extrabold text-[#091F5C]">
-                Tambah Titik Fasilitas & Sumber Air
+                {isEditMode
+                  ? `Edit Data Titik Air (${editingFacility?.code})`
+                  : 'Tambah Titik Fasilitas & Sumber Air'}
               </h2>
               <p className="text-xs text-[#7096D1]">
-                Formulir inventarisasi lapangan perangkat desa & KKN
+                {isEditMode
+                  ? 'Perbarui data teknis, pengelola, maupun koordinat GPS titik air'
+                  : 'Formulir pendataan sarana air bersih Pemerintah Desa Kalikayen'}
               </p>
             </div>
           </div>
@@ -452,44 +494,14 @@ export function AddFacilityModal({
           </div>
 
           {/* Foto & Penginput */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-bold text-[#091F5C]">Foto Lapangan</label>
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-dashed border-[#7096D1] bg-[#E8F2FE] px-3.5 py-2 text-xs font-bold text-[#091F5C] hover:bg-[#D0E4FE]">
-                <Camera className="h-4 w-4 text-[#334DAF]" />
-                {isCompressingPhoto
-                  ? 'Mengompres Foto...'
-                  : photoSizeKB
-                    ? `Foto Siap (${photoSizeKB} KB)`
-                    : 'Unggah Foto Kamera'}
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={(e) => void handlePhotoUpload(e)}
-                  className="hidden"
-                />
-              </label>
-              {photoDataUrl && (
-                <div className="mt-2 flex items-center gap-2.5">
-                  <img
-                    src={photoDataUrl}
-                    alt="Preview lokasi"
-                    className="h-14 w-20 rounded-xl border border-[#D0E4FE] object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPhotoDataUrl(null);
-                      setPhotoSizeKB(null);
-                    }}
-                    className="text-xs font-semibold text-rose-600 hover:underline"
-                  >
-                    Hapus Foto
-                  </button>
-                </div>
-              )}
-            </div>
+          <div className="space-y-3">
+            <PhotoUploadControl
+              label="Foto Lapangan (Kamera atau Galeri HP)"
+              photoDataUrl={photoDataUrl}
+              onChangePhoto={setPhotoDataUrl}
+              onError={setErrorMsg}
+              onBusyChange={setIsCompressingPhoto}
+            />
             <div>
               <label className="mb-1 block text-xs font-bold text-[#091F5C]">
                 Petugas Pendata *
@@ -499,7 +511,8 @@ export function AddFacilityModal({
                 required
                 value={inspectorName}
                 onChange={(e) => setInspectorName(e.target.value)}
-                className="w-full rounded-2xl border border-[#D0E4FE] bg-white px-3.5 py-2 text-xs font-semibold text-[#091F5C]"
+                placeholder="Mis. Budi Santoso (Kadus Watukebo)"
+                className="w-full rounded-2xl border border-[#D0E4FE] bg-white px-3.5 py-2 text-xs font-semibold text-[#091F5C] focus:border-[#334DAF] focus:outline-none"
               />
             </div>
           </div>
@@ -523,7 +536,11 @@ export function AddFacilityModal({
               disabled={isSubmitting || isCompressingPhoto}
               className="rounded-full bg-[#334DAF] px-6 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#091F5C] disabled:opacity-50"
             >
-              {isSubmitting ? 'Menyimpan...' : 'Simpan Titik Air'}
+              {isSubmitting
+                ? 'Menyimpan...'
+                : isEditMode
+                  ? 'Simpan Perubahan'
+                  : 'Simpan Titik Air'}
             </button>
           </div>
         </form>

@@ -14,11 +14,15 @@ import {
   PlusCircle,
   RefreshCw,
   ShieldCheck,
-  Smartphone,
   Users,
 } from 'lucide-react';
 import type { DataConnectionMode } from '../services/inventoryService';
-import type { Dusun, InventorySummaryStats, WaterFacility } from '../types/inventory';
+import type {
+  Dusun,
+  InventorySummaryStats,
+  PhotoPreviewData,
+  WaterFacility,
+} from '../types/inventory';
 import { CategoryIcon, ConditionBadge, getCategoryLabel } from './ConditionBadge';
 
 export type ActiveTab = 'dashboard' | 'map' | 'list' | 'dusun';
@@ -42,6 +46,7 @@ interface DashboardViewProps {
   onOpenWebGisModal: () => void;
   onInstallApp: () => void;
   onSyncData: () => void;
+  onPreviewPhoto: (photo: PhotoPreviewData) => void;
 }
 
 export function DashboardView({
@@ -63,8 +68,14 @@ export function DashboardView({
   onOpenWebGisModal,
   onInstallApp,
   onSyncData,
+  onPreviewPhoto,
 }: DashboardViewProps) {
   const priorityFacilities = facilities.filter((f) => f.condition !== 'berfungsi_baik');
+
+  const healthyPct =
+    stats.totalFacilities > 0
+      ? Math.round((stats.berfungsiBaik / stats.totalFacilities) * 100)
+      : 0;
 
   const latestInspectionDate = facilities.reduce((latest, item) => {
     const time = new Date(item.last_inspected_at).getTime();
@@ -134,8 +145,8 @@ export function DashboardView({
     },
     {
       id: 'webgis',
-      title: isNativeApp ? 'Integrasi WebGIS' : 'WebGIS & APK',
-      subtitle: isNativeApp ? 'Layer GeoJSON' : 'GeoJSON & Mobile',
+      title: isNativeApp ? 'Portal WebGIS' : 'WebGIS & APK',
+      subtitle: isNativeApp ? 'GeoJSON & Tautan' : 'GeoJSON & Mobile',
       icon: Layers,
       accentBg: 'bg-amber-100',
       iconColor: 'text-amber-800',
@@ -147,9 +158,8 @@ export function DashboardView({
 
   return (
     <div className="min-h-screen bg-[#091F5C] pb-28">
-      {/* Hero Header (Reference 1 Deep Navy/Royal Diagonal + Reference 2 Quick Pills) */}
-      <header className="relative overflow-hidden bg-gradient-to-br from-[#091F5C] via-[#183182] to-[#334DAF] px-5 pb-11 pt-[max(1.25rem,env(safe-area-inset-top))] text-white sm:px-8">
-        {/* Diagonal Geometric Shape Overlay matching Reference 1 */}
+      {/* Hero Header */}
+      <header className="relative overflow-hidden bg-gradient-to-br from-[#091F5C] via-[#183182] to-[#334DAF] px-5 pb-10 pt-[max(1.25rem,env(safe-area-inset-top))] text-white sm:px-8">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rotate-12 rounded-[40px] bg-[#334DAF]/40"
@@ -177,96 +187,74 @@ export function DashboardView({
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
-              <span className="hidden items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-[#D0E4FE] sm:inline-flex">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/15 px-3 py-1.5 text-[11px] font-semibold text-white backdrop-blur-sm">
                 <span
                   className={`h-2 w-2 rounded-full ${
                     isCloudLive ? 'bg-emerald-400' : 'bg-amber-400'
                   }`}
                 />
-                {isCloudLive ? 'Cloud Aktif' : 'Mode Offline'}
+                <span className="hidden sm:inline">
+                  {isCloudLive ? 'Cloud Aktif • ' : 'Mode Offline • '}
+                </span>
+                Pemdes Kalikayen
               </span>
-              <div className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/15 px-3 py-1.5 backdrop-blur-sm">
-                <span
-                  className={`h-2 w-2 rounded-full sm:hidden ${
-                    isCloudLive ? 'bg-emerald-400' : 'bg-amber-400'
-                  }`}
-                />
-                <Users className="h-3.5 w-3.5 text-[#D0E4FE]" />
-                <span className="text-[11px] font-semibold text-white">Tim KKN & Desa</span>
-              </div>
             </div>
           </div>
 
           {/* Dashboard Title & Subtitle */}
-          <div className="mt-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <div className="mt-4 flex flex-col justify-between gap-3.5 sm:flex-row sm:items-end">
             <div>
-              <h1 className="text-[22px] font-extrabold leading-snug text-white sm:text-3xl">
+              <h1 className="text-[21px] font-extrabold leading-snug text-white sm:text-3xl">
                 Inventaris & Pelaporan Air Desa Kalikayen
               </h1>
-              <p className="mt-1.5 text-xs font-medium leading-relaxed text-[#D0E4FE] sm:text-sm">
-                Geotagging Partisipatif • Pembaruan: {formattedLastUpdate} • {dusunList.length} Wilayah Dusun
-                {!isCloudLive && !isLoading ? ' • Offline' : ''}
+              <p className="mt-1 text-xs font-medium leading-relaxed text-[#D0E4FE] sm:text-sm">
+                Geotagging Sarana Air Bersih • Update: {formattedLastUpdate} • {dusunList.length}{' '}
+                Wilayah Dusun
+                {!isCloudLive && !isLoading ? ' • Cache Offline' : ''}
               </p>
             </div>
 
-            {/* Clean 2-Tier Action Pills */}
-            <div className="flex flex-col gap-2 sm:items-end">
-              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+            {/* Ringkas & Fokus: 1 Aksi Utama + 2 Aksi Pendukung */}
+            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+              <button
+                type="button"
+                onClick={onOpenAddModal}
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full bg-[#D0E4FE] px-4 py-2.5 text-xs font-extrabold text-[#091F5C] shadow-sm transition hover:bg-white active:scale-[0.99] sm:flex-initial"
+              >
+                <PlusCircle className="h-4 w-4 text-[#334DAF]" />
+                Tambah Titik Air
+              </button>
+              <button
+                type="button"
+                onClick={onExportExcel}
+                className="inline-flex items-center justify-center gap-1.5 rounded-full border border-white/20 bg-white/15 px-3.5 py-2.5 text-xs font-bold text-white backdrop-blur-xs transition hover:bg-white/25 active:scale-[0.99]"
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5 text-[#D0E4FE]" />
+                Excel
+              </button>
+              {isNativeApp ? (
                 <button
                   type="button"
-                  onClick={onOpenAddModal}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#D0E4FE] px-4 py-2.5 text-xs font-extrabold text-[#091F5C] shadow-sm transition hover:bg-white active:scale-[0.99]"
+                  onClick={onSyncData}
+                  disabled={isSyncing}
+                  title="Sinkronkan Data Terbaru"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full border border-white/20 bg-white/15 px-3.5 py-2.5 text-xs font-bold text-white backdrop-blur-xs transition hover:bg-white/25 active:scale-[0.99] disabled:opacity-60"
                 >
-                  <PlusCircle className="h-4 w-4 text-[#334DAF]" />
-                  Tambah Titik Air
+                  <RefreshCw
+                    className={`h-3.5 w-3.5 text-[#D0E4FE] ${isSyncing ? 'animate-spin' : ''}`}
+                  />
+                  {isSyncing ? 'Memuat...' : 'Sinkron'}
                 </button>
+              ) : (
                 <button
                   type="button"
-                  onClick={onOpenWebGisModal}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-full border border-[#D0E4FE]/40 bg-white/15 px-4 py-2.5 text-xs font-bold text-white backdrop-blur-xs transition hover:bg-white/25 active:scale-[0.99]"
+                  onClick={onInstallApp}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full border border-white/20 bg-white/15 px-3.5 py-2.5 text-xs font-bold text-white backdrop-blur-xs transition hover:bg-white/25 active:scale-[0.99]"
                 >
-                  <Layers className="h-4 w-4 text-[#D0E4FE]" />
-                  {isNativeApp ? 'WebGIS Desa' : 'WebGIS & APK'}
+                  <Download className="h-3.5 w-3.5 text-[#D0E4FE]" />
+                  Install
                 </button>
-              </div>
-              <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
-                <button
-                  type="button"
-                  onClick={onExportGeoJson}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-white/15 px-3 py-2 text-[11px] font-bold text-white backdrop-blur-xs transition hover:bg-white/25 active:scale-[0.99]"
-                >
-                  <FileJson className="h-3.5 w-3.5 text-[#D0E4FE]" />
-                  GeoJSON
-                </button>
-                <button
-                  type="button"
-                  onClick={onExportExcel}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-white/15 px-3 py-2 text-[11px] font-bold text-white backdrop-blur-xs transition hover:bg-white/25 active:scale-[0.99]"
-                >
-                  <FileSpreadsheet className="h-3.5 w-3.5 text-[#D0E4FE]" />
-                  Excel
-                </button>
-                {isNativeApp ? (
-                  <button
-                    type="button"
-                    onClick={onSyncData}
-                    disabled={isSyncing}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-full bg-white/15 px-3 py-2 text-[11px] font-bold text-white backdrop-blur-xs transition hover:bg-white/25 active:scale-[0.99] disabled:opacity-60"
-                  >
-                    <RefreshCw className={`h-3.5 w-3.5 text-[#D0E4FE] ${isSyncing ? 'animate-spin' : ''}`} />
-                    {isSyncing ? 'Memuat...' : 'Sinkron'}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={onInstallApp}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-full bg-white/15 px-3 py-2 text-[11px] font-bold text-white backdrop-blur-xs transition hover:bg-white/25 active:scale-[0.99]"
-                  >
-                    <Download className="h-3.5 w-3.5 text-[#D0E4FE]" />
-                    Install
-                  </button>
-                )}
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -377,6 +365,25 @@ export function DashboardView({
                 </p>
               </button>
             </div>
+
+            {stats.totalFacilities > 0 && (
+              <div className="mt-3 rounded-2xl border border-[#D0E4FE] bg-white px-4 py-3 shadow-xs">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-[#091F5C]">
+                    Tingkat Kesiapan Sarana Air Desa
+                  </span>
+                  <span className="font-extrabold text-[#334DAF]">
+                    {healthyPct}% Berfungsi Baik ({stats.berfungsiBaik}/{stats.totalFacilities})
+                  </span>
+                </div>
+                <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-[#E8F2FE]">
+                  <div
+                    className="h-full rounded-full bg-emerald-500 transition-all"
+                    style={{ width: `${healthyPct}%` }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Section 2: Reference 1 Style 2x3 Elevated Square Icon Grid */}
@@ -422,10 +429,10 @@ export function DashboardView({
                   Portal Informasi Air Desa Kalikayen
                 </div>
                 <h3 className="text-base font-extrabold text-[#091F5C]">
-                  Integrasi WebGIS Desa Kalikayen & Aplikasi Mobile
+                  Integrasi WebGIS Desa Kalikayen
                 </h3>
                 <p className="max-w-2xl text-xs text-[#334DAF]">
-                  Setiap titik geotagging dan laporan kerusakan di <strong>AIRLOG</strong> langsung tersedia sebagai layer spasial <strong>GeoJSON (WGS84 / EPSG:4326)</strong> untuk peta WebGIS serta dapat di-deploy sebagai aplikasi Android (<code>.apk</code>).
+                  Setiap titik geotagging dan laporan kerusakan di <strong>AIRLOG</strong> langsung siap diekspor sebagai layer spasial <strong>GeoJSON (WGS84 / EPSG:4326)</strong> untuk portal peta WebGIS Desa Kalikayen maupun QGIS.
                 </p>
               </div>
 
@@ -454,8 +461,8 @@ export function DashboardView({
                   onClick={onOpenWebGisModal}
                   className="inline-flex items-center gap-1.5 rounded-full bg-[#091F5C] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#334DAF]"
                 >
-                  <Smartphone className="h-3.5 w-3.5 text-[#D0E4FE]" />
-                  Panduan WebGIS & Build APK
+                  <Layers className="h-3.5 w-3.5 text-[#D0E4FE]" />
+                  {isNativeApp ? 'Pengaturan WebGIS & Bagikan APK' : 'Panduan WebGIS & Build APK'}
                 </button>
               </div>
             </div>
@@ -521,9 +528,30 @@ export function DashboardView({
                     className="flex flex-col justify-between gap-3 rounded-2xl border border-[#D0E4FE] bg-white p-4 shadow-card sm:flex-row sm:items-center"
                   >
                     <div className="flex items-start gap-3.5">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#E8F2FE] text-[#334DAF]">
-                        <CategoryIcon category={facility.category} className="h-6 w-6" />
-                      </div>
+                      {facility.photo_url ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onPreviewPhoto({
+                              src: facility.photo_url!,
+                              title: `[${facility.code}] ${facility.name}`,
+                              subtitle: facility.dusun_name,
+                            })
+                          }
+                          title="Ketuk untuk memperbesar foto"
+                          className="shrink-0 overflow-hidden rounded-2xl border border-[#D0E4FE] transition hover:ring-2 hover:ring-[#334DAF]"
+                        >
+                          <img
+                            src={facility.photo_url}
+                            alt={facility.name}
+                            className="h-12 w-12 object-cover"
+                          />
+                        </button>
+                      ) : (
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#E8F2FE] text-[#334DAF]">
+                          <CategoryIcon category={facility.category} className="h-6 w-6" />
+                        </div>
+                      )}
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="rounded-md bg-[#E8F2FE] px-2 py-0.5 font-mono text-[11px] font-bold text-[#334DAF]">

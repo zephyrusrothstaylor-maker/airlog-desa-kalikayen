@@ -9,6 +9,7 @@ import { DashboardView, type ActiveTab } from './components/DashboardView';
 import { DusunAnalyticsView } from './components/DusunAnalyticsView';
 import { FacilityListView } from './components/FacilityListView';
 import { MapExplorerView } from './components/MapExplorerView';
+import { PhotoLightboxModal } from './components/PhotoLightboxModal';
 import { WebGisIntegrationModal } from './components/WebGisIntegrationModal';
 import { isSupabaseConfigured } from './lib/supabase';
 import {
@@ -19,6 +20,8 @@ import {
   getDataConnectionMode,
   getDusunList,
   getFacilities,
+  updateDusunInfo,
+  updateFacility,
   updateFacilityCondition,
   type DataConnectionMode,
 } from './services/inventoryService';
@@ -26,11 +29,18 @@ import type {
   CreateWaterFacilityInput,
   Dusun,
   FacilityConditionLog,
+  PhotoPreviewData,
   UpdateConditionInput,
+  UpdateDusunInput,
   WaterFacility,
 } from './types/inventory';
 import { exportInventoryToExcel } from './utils/excelExport';
 import { exportFacilitiesToGeoJson } from './utils/geojsonExport';
+import {
+  buildFacilityReportText,
+  buildVillageRecapText,
+  shareTextReport,
+} from './utils/whatsappShare';
 
 const WEBGIS_PORTAL_STORAGE_KEY = 'airlog_kalikayen_webgis_portal_url';
 
@@ -55,6 +65,8 @@ export default function App() {
   const isNativeApp = Capacitor.isNativePlatform();
 
   const [conditionModalFacility, setConditionModalFacility] = useState<WaterFacility | null>(null);
+  const [editingFacility, setEditingFacility] = useState<WaterFacility | null>(null);
+  const [lightboxPhoto, setLightboxPhoto] = useState<PhotoPreviewData | null>(null);
   const [isConditionModalOpen, setIsConditionModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isInstallGuideOpen, setIsInstallGuideOpen] = useState(false);
@@ -69,13 +81,18 @@ export default function App() {
   const [deferredInstallPrompt, setDeferredInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const deepLinkHandledRef = useRef(false);
+  const toastTimerRef = useRef<number | null>(null);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
-    window.setTimeout(() => {
-      setToastMessage((current) => (current === msg ? null : current));
+    if (toastTimerRef.current !== null) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = window.setTimeout(() => {
+      setToastMessage(null);
+      toastTimerRef.current = null;
     }, 3500);
   }, []);
 
@@ -137,10 +154,13 @@ export default function App() {
   useEffect(() => {
     if (!isNativeApp) return;
     const listenerPromise = CapApp.addListener('backButton', () => {
-      if (isConditionModalOpen) {
+      if (lightboxPhoto) {
+        setLightboxPhoto(null);
+      } else if (isConditionModalOpen) {
         setIsConditionModalOpen(false);
       } else if (isAddModalOpen) {
         setIsAddModalOpen(false);
+        setEditingFacility(null);
       } else if (isWebGisModalOpen) {
         setIsWebGisModalOpen(false);
       } else if (isInstallGuideOpen) {
@@ -156,6 +176,7 @@ export default function App() {
     };
   }, [
     isNativeApp,
+    lightboxPhoto,
     isConditionModalOpen,
     isAddModalOpen,
     isWebGisModalOpen,
@@ -193,11 +214,62 @@ export default function App() {
     showToast(`Kondisi fisik "${updated.name}" berhasil diperbarui.`);
   };
 
+  const handleOpenAddNewModal = () => {
+    setEditingFacility(null);
+    setIsAddModalOpen(true);
+  };
+
+  const handleOpenEditModal = (facility: WaterFacility) => {
+    setEditingFacility(facility);
+    setIsAddModalOpen(true);
+  };
+
   const handleCreateFacility = async (input: CreateWaterFacilityInput) => {
     const created = await createFacility(input);
     await loadAllData();
     setSelectedMapFacility(created);
     showToast(`Titik air baru "${created.name}" (${created.code}) berhasil ditambahkan.`);
+  };
+
+  const handleUpdateFacility = async (facilityId: string, input: CreateWaterFacilityInput) => {
+    const updated = await updateFacility(facilityId, input);
+    await loadAllData();
+    setSelectedMapFacility(updated);
+    showToast(`Data titik "${updated.name}" (${updated.code}) berhasil diperbarui.`);
+  };
+
+  const handleUpdateDusun = async (input: UpdateDusunInput) => {
+    const updated = await updateDusunInfo(input);
+    await loadAllData();
+    showToast(`Data wilayah ${updated.name} berhasil diperbarui.`);
+  };
+
+  const handleShareFacilityReport = async (facility: WaterFacility) => {
+    try {
+      const result = await shareTextReport(
+        `Laporan ${facility.code} - ${facility.name}`,
+        buildFacilityReportText(facility)
+      );
+      if (result === 'copied') {
+        showToast('Ringkasan laporan titik air disalin! Siap ditempel ke Grup WhatsApp.');
+      }
+    } catch {
+      showToast('Gagal membagikan ringkasan laporan titik air.');
+    }
+  };
+
+  const handleShareVillageRecap = async () => {
+    try {
+      const result = await shareTextReport(
+        'Rekap Kondisi Air Desa Kalikayen',
+        buildVillageRecapText(facilities, dusunList)
+      );
+      if (result === 'copied') {
+        showToast('Rekap 5 Dusun disalin! Siap dikirim ke Grup WhatsApp Desa.');
+      }
+    } catch {
+      showToast('Gagal membagikan rekap kondisi air desa.');
+    }
   };
 
   const handleDeleteFacility = async (facilityId: string) => {
@@ -292,10 +364,10 @@ export default function App() {
       {toastMessage && (
         <div
           role="status"
-          className="fixed left-1/2 top-4 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full bg-[#091F5C] px-4 py-2.5 text-xs font-bold text-white shadow-float"
+          className="fixed left-1/2 top-[max(1rem,env(safe-area-inset-top))] z-50 flex max-w-[92vw] -translate-x-1/2 items-center gap-2 rounded-full bg-[#091F5C] px-4 py-2.5 text-xs font-bold text-white shadow-float"
         >
-          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-          <span>{toastMessage}</span>
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+          <span className="truncate">{toastMessage}</span>
         </div>
       )}
 
@@ -311,7 +383,7 @@ export default function App() {
           isNativeApp={isNativeApp}
           webGisPortalUrl={webGisPortalUrl}
           onNavigateTab={handleNavigateTab}
-          onOpenAddModal={() => setIsAddModalOpen(true)}
+          onOpenAddModal={handleOpenAddNewModal}
           onOpenUpdateModal={(facility) => handleOpenUpdateModal(facility)}
           onSelectFacilityOnMap={handleSelectFacilityOnMap}
           onExportExcel={() => void handleExportExcel()}
@@ -319,6 +391,7 @@ export default function App() {
           onOpenWebGisModal={() => setIsWebGisModalOpen(true)}
           onInstallApp={() => void handleInstallApp()}
           onSyncData={() => void handleSyncData()}
+          onPreviewPhoto={(photo) => setLightboxPhoto(photo)}
         />
       )}
 
@@ -328,7 +401,10 @@ export default function App() {
           selectedFacility={selectedMapFacility}
           onSelectFacility={(facility) => setSelectedMapFacility(facility)}
           onOpenUpdateModal={(facility) => handleOpenUpdateModal(facility)}
-          onOpenAddModal={() => setIsAddModalOpen(true)}
+          onOpenEditModal={handleOpenEditModal}
+          onOpenAddModal={handleOpenAddNewModal}
+          onShareFacility={(facility) => void handleShareFacilityReport(facility)}
+          onPreviewPhoto={(photo) => setLightboxPhoto(photo)}
         />
       )}
 
@@ -339,11 +415,14 @@ export default function App() {
           dusunList={dusunList}
           initialConditionFilter={listConditionFilter}
           onOpenUpdateModal={(facility) => handleOpenUpdateModal(facility)}
-          onOpenAddModal={() => setIsAddModalOpen(true)}
+          onOpenEditModal={handleOpenEditModal}
+          onOpenAddModal={handleOpenAddNewModal}
           onSelectFacilityOnMap={handleSelectFacilityOnMap}
           onDeleteFacility={(id) => void handleDeleteFacility(id)}
           onExportExcel={() => void handleExportExcel()}
           onExportGeoJson={() => void handleExportGeoJson()}
+          onShareFacility={(facility) => void handleShareFacilityReport(facility)}
+          onPreviewPhoto={(photo) => setLightboxPhoto(photo)}
         />
       )}
 
@@ -352,9 +431,13 @@ export default function App() {
           dusunList={dusunList}
           facilities={facilities}
           conditionLogs={conditionLogs}
+          isSyncing={isSyncing}
           onExportExcel={() => void handleExportExcel()}
           onExportGeoJson={() => void handleExportGeoJson()}
-          onResetDemoData={() => void handleSyncData()}
+          onSyncData={() => void handleSyncData()}
+          onShareVillageRecap={() => void handleShareVillageRecap()}
+          onUpdateDusun={handleUpdateDusun}
+          onPreviewPhoto={(photo) => setLightboxPhoto(photo)}
         />
       )}
 
@@ -370,7 +453,7 @@ export default function App() {
           facilities={facilities}
           onSelectFacility={(f) => setConditionModalFacility(f)}
           onClose={() => setIsConditionModalOpen(false)}
-          onOpenAddModal={() => setIsAddModalOpen(true)}
+          onOpenAddModal={handleOpenAddNewModal}
           onSaveCondition={handleSaveCondition}
         />
       )}
@@ -378,9 +461,14 @@ export default function App() {
       {isAddModalOpen && (
         <AddFacilityModal
           dusunList={dusunList}
-          existingCount={facilities.length}
-          onClose={() => setIsAddModalOpen(false)}
+          existingCodes={facilities.map((f) => f.code)}
+          editingFacility={editingFacility}
+          onClose={() => {
+            setIsAddModalOpen(false);
+            setEditingFacility(null);
+          }}
           onCreateFacility={handleCreateFacility}
+          onUpdateFacility={handleUpdateFacility}
         />
       )}
 
@@ -388,11 +476,16 @@ export default function App() {
         <WebGisIntegrationModal
           facilityCount={facilities.length}
           webgisUrl={webGisPortalUrl}
+          isNativeApp={isNativeApp}
           onSaveWebgisUrl={handleSaveWebGisPortalUrl}
           onExportGeoJson={() => void handleExportGeoJson()}
           onTriggerPwaInstall={() => void handleInstallApp()}
           onClose={() => setIsWebGisModalOpen(false)}
         />
+      )}
+
+      {lightboxPhoto && (
+        <PhotoLightboxModal photo={lightboxPhoto} onClose={() => setLightboxPhoto(null)} />
       )}
 
       {isInstallGuideOpen && (

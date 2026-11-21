@@ -103,6 +103,19 @@ export interface UpdateConditionInput {
   inspector_name: string;
 }
 
+export interface UpdateDusunInput {
+  id: string;
+  head_name: string;
+  head_phone: string;
+  total_kk: number;
+}
+
+export interface PhotoPreviewData {
+  src: string;
+  title: string;
+  subtitle?: string;
+}
+
 export interface InventorySummaryStats {
   totalFacilities: number;
   berfungsiBaik: number;

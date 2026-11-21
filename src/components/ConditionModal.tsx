@@ -1,9 +1,9 @@
-import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import {
   AlertTriangle,
-  Camera,
   CheckCircle2,
   ClipboardCheck,
+  Search,
   SunMedium,
   X,
   XCircle,
@@ -18,7 +18,9 @@ import {
   type WaterClarityStatus,
   type WaterFacility,
 } from '../types/inventory';
-import { compressImageToWebP } from '../utils/imageCompressor';
+import { getSavedInspectorName, saveInspectorName } from '../utils/inspectorPrefs';
+import { ConditionBadge } from './ConditionBadge';
+import { PhotoUploadControl } from './PhotoUploadControl';
 
 interface ConditionModalProps {
   facility: WaterFacility | null;
@@ -39,6 +41,7 @@ export function ConditionModal({
 }: ConditionModalProps) {
   const activeFacility = facility ?? facilities[0] ?? null;
 
+  const [facilityFilter, setFacilityFilter] = useState('');
   const [condition, setCondition] = useState<PhysicalCondition>(
     activeFacility?.condition ?? 'berfungsi_baik'
   );
@@ -49,16 +52,28 @@ export function ConditionModal({
     activeFacility?.seasonal_availability ?? 'sepanjang_tahun'
   );
   const [notes, setNotes] = useState<string>(activeFacility?.condition_notes ?? '');
-  const [inspectorName, setInspectorName] = useState<string>(
-    activeFacility?.last_inspected_by ?? 'Perangkat Desa / Tim KKN'
-  );
+  const [inspectorName, setInspectorName] = useState<string>(getSavedInspectorName);
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(
     activeFacility?.photo_url ?? null
   );
-  const [photoSizeKB, setPhotoSizeKB] = useState<number | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const filteredFacilityChoices = useMemo(() => {
+    const q = facilityFilter.trim().toLowerCase();
+    if (!q) return facilities;
+    const matches = facilities.filter(
+      (f) =>
+        f.name.toLowerCase().includes(q) ||
+        f.code.toLowerCase().includes(q) ||
+        (f.dusun_name ?? '').toLowerCase().includes(q)
+    );
+    if (activeFacility && !matches.some((f) => f.id === activeFacility.id)) {
+      return [activeFacility, ...matches];
+    }
+    return matches;
+  }, [facilities, facilityFilter, activeFacility]);
 
   if (!activeFacility) {
     return (
@@ -106,23 +121,7 @@ export function ConditionModal({
     setSeasonalAvailability(next.seasonal_availability);
     setNotes(next.condition_notes ?? '');
     setPhotoDataUrl(next.photo_url);
-    setPhotoSizeKB(null);
-  };
-
-  const handlePhotoChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsCompressing(true);
     setErrorMsg(null);
-    try {
-      const result = await compressImageToWebP(file);
-      setPhotoDataUrl(result.dataUrl);
-      setPhotoSizeKB(result.sizeKB);
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Gagal memproses foto.');
-    } finally {
-      setIsCompressing(false);
-    }
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -130,6 +129,7 @@ export function ConditionModal({
     setIsSubmitting(true);
     setErrorMsg(null);
     try {
+      saveInspectorName(inspectorName);
       await onSaveCondition({
         facility_id: activeFacility.id,
         condition,
@@ -186,7 +186,7 @@ export function ConditionModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#091F5C]/60 p-0 backdrop-blur-xs sm:items-center sm:p-4">
-      <div className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-[32px] bg-[#F9FBFF] p-5 shadow-float sm:rounded-[32px] sm:p-6">
+      <div className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-[32px] bg-[#F9FBFF] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-float sm:rounded-[32px] sm:p-6">
         <div className="flex items-center justify-between border-b border-[#D0E4FE] pb-3.5">
           <div className="flex items-center gap-2.5">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#D0E4FE] text-[#091F5C]">
@@ -213,16 +213,31 @@ export function ConditionModal({
 
         <form onSubmit={(e) => void handleSubmit(e)} className="mt-4 space-y-4">
           {/* Pilih Titik Air */}
-          <div>
-            <label className="mb-1 block text-xs font-bold text-[#091F5C]">
-              Pilih Titik Fasilitas Air
-            </label>
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="text-xs font-bold text-[#091F5C]">
+                Pilih Titik Fasilitas Air
+              </label>
+              <ConditionBadge condition={activeFacility.condition} />
+            </div>
+            {facilities.length > 5 && (
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#7096D1]" />
+                <input
+                  type="text"
+                  value={facilityFilter}
+                  onChange={(e) => setFacilityFilter(e.target.value)}
+                  placeholder="Cari cepat kode, nama titik, atau dusun..."
+                  className="w-full rounded-xl border border-[#D0E4FE] bg-white py-2 pl-8 pr-3 text-xs text-[#091F5C] placeholder-[#7096D1] focus:border-[#334DAF] focus:outline-none"
+                />
+              </div>
+            )}
             <select
               value={activeFacility.id}
               onChange={(e) => handleFacilitySwitch(e.target.value)}
               className="w-full rounded-2xl border border-[#D0E4FE] bg-white px-3.5 py-2.5 text-sm font-bold text-[#091F5C] focus:border-[#334DAF] focus:outline-none"
             >
-              {facilities.map((f) => (
+              {filteredFacilityChoices.map((f) => (
                 <option key={f.id} value={f.id}>
                   [{f.code}] {f.name} • {f.dusun_name}
                 </option>
@@ -315,53 +330,18 @@ export function ConditionModal({
           </div>
 
           {/* Foto Dokumentasi Lapangan (Kompresi WebP Otomatis) */}
-          <div>
-            <label className="mb-1 block text-xs font-bold text-[#091F5C]">
-              Foto Kondisi Fisik (Otomatis Kompres WebP &le; 150 KB)
-            </label>
-            <div className="flex items-center gap-3">
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-dashed border-[#7096D1] bg-[#E8F2FE] px-4 py-2.5 text-xs font-bold text-[#091F5C] transition hover:bg-[#D0E4FE]">
-                <Camera className="h-4 w-4 text-[#334DAF]" />
-                {isCompressing ? 'Mengompres Foto...' : 'Ambil / Pilih Foto HP'}
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={(e) => void handlePhotoChange(e)}
-                  className="hidden"
-                />
-              </label>
-              {photoSizeKB !== null && (
-                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-800">
-                  Terkompresi: {photoSizeKB} KB (WebP)
-                </span>
-              )}
-            </div>
-            {photoDataUrl && (
-              <div className="mt-2 flex items-center gap-3">
-                <img
-                  src={photoDataUrl}
-                  alt="Preview kondisi"
-                  className="h-20 w-28 rounded-xl border border-[#D0E4FE] object-cover"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPhotoDataUrl(null);
-                    setPhotoSizeKB(null);
-                  }}
-                  className="text-xs font-semibold text-rose-600 hover:underline"
-                >
-                  Hapus Foto
-                </button>
-              </div>
-            )}
-          </div>
+          <PhotoUploadControl
+            key={activeFacility.id}
+            photoDataUrl={photoDataUrl}
+            onChangePhoto={setPhotoDataUrl}
+            onError={setErrorMsg}
+            onBusyChange={setIsCompressing}
+          />
 
           {/* Nama Pemeriksa */}
           <div>
             <label className="mb-1 block text-xs font-bold text-[#091F5C]">
-              Nama Pemeriksa (Perangkat Desa / Mahasiswa KKN) *
+              Nama Pemeriksa (Perangkat Desa / Pengelola) *
             </label>
             <input
               type="text"

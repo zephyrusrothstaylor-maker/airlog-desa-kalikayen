@@ -45,6 +45,7 @@ interface ApiResponse {
 }
 
 export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
+  // Enable CORS so WebGIS Desa Kalikayen (GitHub Pages / Leaflet) can fetch this layer directly
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -88,10 +89,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
       const code = String(item.code ?? '');
       const lng = Number(item.longitude ?? 110.4669);
       const lat = Number(item.latitude ?? -7.0892);
-      const elev =
-        item.elevation_m !== null && item.elevation_m !== undefined
-          ? Number(item.elevation_m)
-          : null;
+      const elev = item.elevation_m !== null && item.elevation_m !== undefined ? Number(item.elevation_m) : null;
 
       return {
         type: 'Feature',
@@ -124,7 +122,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
           pengelola: item.manager_name ?? '-',
           kontak_pengelola: item.manager_phone ?? '-',
           foto_url: item.photo_url ?? null,
-          pelapor_terakhir: item.last_inspected_by ?? 'Masyarakat / Tim KKN',
+          pelapor_terakhir: item.last_inspected_by ?? 'Perangkat Desa Kalikayen',
           waktu_lapor: item.last_inspected_at,
           link_lapor_airlog: `https://si-air-kalikayen.vercel.app/?action=lapor&code=${encodeURIComponent(code)}`,
         },
@@ -141,7 +139,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
         },
       },
       metadata: {
-        project: 'KKN Kelompok 4 Desa Kalikayen - Klaster K4 (Portal Informasi Air Desa & AIRLOG)',
+        project: 'Portal Informasi Air Desa Kalikayen - AIRLOG Pemerintah Desa',
         desa: 'Desa Kalikayen',
         kecamatan: 'Ungaran Timur',
         kabupaten: 'Semarang',
@@ -153,8 +151,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
 
     res.status(200).json(geojson);
   } catch (err) {
-    res.status(500).json({
-      error: err instanceof Error ? err.message : 'Internal Server Error',
-    });
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
   }
 }

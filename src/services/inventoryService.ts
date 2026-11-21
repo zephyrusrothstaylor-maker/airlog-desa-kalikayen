@@ -6,6 +6,7 @@ import type {
   FacilityConditionLog,
   InventorySummaryStats,
   UpdateConditionInput,
+  UpdateDusunInput,
   WaterFacility,
 } from '../types/inventory';
 
@@ -104,54 +105,22 @@ export async function getFacilities(): Promise<WaterFacility[]> {
   }));
 }
 
-export async function createFacility(input: CreateWaterFacilityInput): Promise<WaterFacility> {
-  const nowIso = new Date().toISOString();
-
-  if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase
-      .from('water_facilities')
-      .insert({
-        code: input.code.trim().toUpperCase(),
-        name: input.name.trim(),
-        dusun_id: input.dusun_id,
-        rt: input.rt?.trim() || null,
-        rw: input.rw?.trim() || null,
-        address_detail: input.address_detail?.trim() || null,
-        category: input.category,
-        condition: input.condition,
-        water_clarity: input.water_clarity,
-        seasonal_availability: input.seasonal_availability,
-        condition_notes: input.condition_notes?.trim() || null,
-        latitude: input.latitude,
-        longitude: input.longitude,
-        elevation_m: input.elevation_m ?? null,
-        beneficiary_kk: input.beneficiary_kk,
-        built_year: input.built_year ?? null,
-        funding_source: input.funding_source?.trim() || null,
-        manager_name: input.manager_name?.trim() || null,
-        manager_phone: input.manager_phone?.trim() || null,
-        photo_url: input.photo_url ?? null,
-        last_inspected_by: input.last_inspected_by.trim() || 'Perangkat Desa',
-        last_inspected_at: nowIso,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      throw new Error(`Gagal menyimpan fasilitas ke Supabase: ${error.message}`);
-    }
-    return data as WaterFacility;
+function formatSupabaseActionError(actionLabel: string, errMessage: string): string {
+  const lower = errMessage.toLowerCase();
+  if (lower.includes('duplicate key') || lower.includes('water_facilities_code_key')) {
+    return 'Kode plang tersebut sudah terdaftar. Gunakan kode titik air yang berbeda.';
   }
+  if (lower.includes('failed to fetch') || lower.includes('network')) {
+    return `${actionLabel} gagal: tidak ada koneksi internet ke server Cloud.`;
+  }
+  return `${actionLabel}: ${errMessage}`;
+}
 
-  const dusunList = await getDusunList();
-  const dusunName = dusunList.find((d) => d.id === input.dusun_id)?.name ?? 'Dusun';
-
-  const newFacility: WaterFacility = {
-    id: crypto.randomUUID(),
+function buildFacilityPayload(input: CreateWaterFacilityInput, nowIso: string) {
+  return {
     code: input.code.trim().toUpperCase(),
     name: input.name.trim(),
     dusun_id: input.dusun_id,
-    dusun_name: dusunName,
     rt: input.rt?.trim() || null,
     rw: input.rw?.trim() || null,
     address_detail: input.address_detail?.trim() || null,
@@ -169,8 +138,34 @@ export async function createFacility(input: CreateWaterFacilityInput): Promise<W
     manager_name: input.manager_name?.trim() || null,
     manager_phone: input.manager_phone?.trim() || null,
     photo_url: input.photo_url ?? null,
+    last_inspected_by: input.last_inspected_by.trim() || 'Perangkat Desa Kalikayen',
     last_inspected_at: nowIso,
-    last_inspected_by: input.last_inspected_by.trim() || 'Perangkat Desa',
+  };
+}
+
+export async function createFacility(input: CreateWaterFacilityInput): Promise<WaterFacility> {
+  const nowIso = new Date().toISOString();
+
+  if (isSupabaseConfigured && supabase) {
+    const { data, error } = await supabase
+      .from('water_facilities')
+      .insert(buildFacilityPayload(input, nowIso))
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(formatSupabaseActionError('Gagal menyimpan fasilitas ke Cloud', error.message));
+    }
+    return data as WaterFacility;
+  }
+
+  const dusunList = await getDusunList();
+  const dusunName = dusunList.find((d) => d.id === input.dusun_id)?.name ?? 'Dusun';
+
+  const newFacility: WaterFacility = {
+    id: crypto.randomUUID(),
+    ...buildFacilityPayload(input, nowIso),
+    dusun_name: dusunName,
     created_at: nowIso,
     updated_at: nowIso,
   };
@@ -192,6 +187,84 @@ export async function createFacility(input: CreateWaterFacilityInput): Promise<W
   writeLocal(STORAGE_KEYS.LOGS, [initialLog, ...currentLogs]);
 
   return newFacility;
+}
+
+export async function updateFacility(
+  facilityId: string,
+  input: CreateWaterFacilityInput
+): Promise<WaterFacility> {
+  const nowIso = new Date().toISOString();
+
+  if (isSupabaseConfigured && supabase) {
+    const { data, error } = await supabase
+      .from('water_facilities')
+      .update(buildFacilityPayload(input, nowIso))
+      .eq('id', facilityId)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(formatSupabaseActionError('Gagal memperbarui data titik air', error.message));
+    }
+    return data as WaterFacility;
+  }
+
+  const dusunList = await getDusunList();
+  const dusunName = dusunList.find((d) => d.id === input.dusun_id)?.name ?? 'Dusun';
+  const current = readLocal<WaterFacility[]>(STORAGE_KEYS.FACILITIES, SEED_WATER_FACILITIES);
+  const idx = current.findIndex((item) => item.id === facilityId);
+  if (idx === -1) {
+    throw new Error('Titik fasilitas air tidak ditemukan.');
+  }
+
+  const existing = current[idx];
+  const updated: WaterFacility = {
+    ...existing,
+    ...buildFacilityPayload(input, nowIso),
+    dusun_name: dusunName,
+    updated_at: nowIso,
+  };
+  const next = [...current];
+  next[idx] = updated;
+  writeLocal(STORAGE_KEYS.FACILITIES, next);
+  return updated;
+}
+
+export async function updateDusunInfo(input: UpdateDusunInput): Promise<Dusun> {
+  const payload = {
+    head_name: input.head_name.trim() || null,
+    head_phone: input.head_phone.trim() || null,
+    total_kk: Math.max(0, Math.round(input.total_kk || 0)),
+  };
+
+  if (isSupabaseConfigured && supabase) {
+    const { data, error } = await supabase
+      .from('dusun')
+      .update(payload)
+      .eq('id', input.id)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(formatSupabaseActionError('Gagal memperbarui data dusun', error.message));
+    }
+    return data as Dusun;
+  }
+
+  const current = readLocal<Dusun[]>(STORAGE_KEYS.DUSUN, SEED_DUSUN);
+  const idx = current.findIndex((item) => item.id === input.id);
+  if (idx === -1) {
+    throw new Error('Data dusun tidak ditemukan.');
+  }
+  const updated: Dusun = {
+    ...current[idx],
+    ...payload,
+    updated_at: new Date().toISOString(),
+  };
+  const next = [...current];
+  next[idx] = updated;
+  writeLocal(STORAGE_KEYS.DUSUN, next);
+  return updated;
 }
 
 export async function updateFacilityCondition(
@@ -225,7 +298,7 @@ export async function updateFacilityCondition(
       .single();
 
     if (error) {
-      throw new Error(`Gagal memperbarui kondisi fisik: ${error.message}`);
+      throw new Error(formatSupabaseActionError('Gagal memperbarui kondisi fisik', error.message));
     }
     return data as WaterFacility;
   }
@@ -273,7 +346,7 @@ export async function deleteFacility(facilityId: string): Promise<void> {
   if (isSupabaseConfigured && supabase) {
     const { error } = await supabase.from('water_facilities').delete().eq('id', facilityId);
     if (error) {
-      throw new Error(`Gagal menghapus fasilitas: ${error.message}`);
+      throw new Error(formatSupabaseActionError('Gagal menghapus fasilitas', error.message));
     }
     return;
   }
@@ -285,29 +358,36 @@ export async function deleteFacility(facilityId: string): Promise<void> {
   );
 }
 
-export async function getConditionLogs(facilityId?: string): Promise<FacilityConditionLog[]> {
-  if (isSupabaseConfigured && supabase) {
-    try {
-      let query = supabase
-        .from('facility_condition_logs')
-        .select('id, facility_id, previous_condition, new_condition, notes, photo_url, inspector_name, inspected_at')
-        .order('inspected_at', { ascending: false });
+async function fetchSupabaseConditionLogs(
+  facilityId?: string
+): Promise<FacilityConditionLog[] | null> {
+  if (!isSupabaseConfigured || !supabase) return null;
+  try {
+    let query = supabase
+      .from('facility_condition_logs')
+      .select('id, facility_id, previous_condition, new_condition, notes, photo_url, inspector_name, inspected_at')
+      .order('inspected_at', { ascending: false });
 
-      if (facilityId) {
-        query = query.eq('facility_id', facilityId);
-      }
-
-      const { data, error } = await query;
-      if (!error && data) {
-        if (!facilityId) {
-          writeLocal(STORAGE_KEYS.LOGS, data as FacilityConditionLog[]);
-        }
-        return data as FacilityConditionLog[];
-      }
-    } catch {
-      // Fallback to cached logs
+    if (facilityId) {
+      query = query.eq('facility_id', facilityId);
     }
+
+    const { data, error } = await query;
+    if (error || !data) return null;
+
+    const logs = data as FacilityConditionLog[];
+    if (!facilityId) {
+      writeLocal(STORAGE_KEYS.LOGS, logs);
+    }
+    return logs;
+  } catch {
+    return null;
   }
+}
+
+export async function getConditionLogs(facilityId?: string): Promise<FacilityConditionLog[]> {
+  const remoteLogs = await fetchSupabaseConditionLogs(facilityId);
+  if (remoteLogs) return remoteLogs;
 
   const logs = readLocal<FacilityConditionLog[]>(STORAGE_KEYS.LOGS, SEED_CONDITION_LOGS);
   return facilityId ? logs.filter((log) => log.facility_id === facilityId) : logs;

@@ -15,6 +15,7 @@ import {
 interface WebGisIntegrationModalProps {
   facilityCount: number;
   webgisUrl: string;
+  isNativeApp?: boolean;
   onSaveWebgisUrl: (url: string) => void;
   onExportGeoJson: () => void;
   onTriggerPwaInstall: () => void;
@@ -24,6 +25,7 @@ interface WebGisIntegrationModalProps {
 export function WebGisIntegrationModal({
   facilityCount,
   webgisUrl,
+  isNativeApp = false,
   onSaveWebgisUrl,
   onExportGeoJson,
   onTriggerPwaInstall,
@@ -141,7 +143,7 @@ fetch('${geojsonApiUrl}')
             }`}
           >
             <Smartphone className="h-4 w-4" />
-            2. Deploy Mobile (APK & PWA)
+            {isNativeApp ? '2. Bagikan Aplikasi APK' : '2. Deploy Mobile (APK & PWA)'}
           </button>
         </div>
 
@@ -203,14 +205,15 @@ fetch('${geojsonApiUrl}')
                 </button>
               </div>
 
-              <div className="mt-3">
-                <div className="mb-1.5 flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-[#091F5C]">
-                    Kode Integrasi Leaflet.js untuk Peta WebGIS Desa:
-                  </span>
+              <details className="mt-3 rounded-xl border border-[#D0E4FE] bg-[#F9FBFF] p-3">
+                <summary className="flex cursor-pointer items-center justify-between text-[11px] font-bold text-[#334DAF]">
+                  <span>Panduan Teknis Admin IT / GIS: Kode Integrasi Leaflet.js</span>
                   <button
                     type="button"
-                    onClick={() => void copyText('leaflet', leafletSnippet)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      void copyText('leaflet', leafletSnippet);
+                    }}
                     className="inline-flex items-center gap-1 rounded-lg bg-[#E8F2FE] px-2.5 py-1 text-[11px] font-bold text-[#334DAF] hover:bg-[#D0E4FE]"
                   >
                     {copiedKey === 'leaflet' ? (
@@ -220,11 +223,11 @@ fetch('${geojsonApiUrl}')
                     )}
                     {copiedKey === 'leaflet' ? 'Kode Tersalin!' : 'Salin Kode Leaflet'}
                   </button>
-                </div>
-                <pre className="max-h-40 overflow-x-auto rounded-xl bg-[#091F5C] p-3 font-mono text-[10px] leading-relaxed text-[#D0E4FE]">
+                </summary>
+                <pre className="mt-2.5 max-h-40 overflow-x-auto rounded-xl bg-[#091F5C] p-3 font-mono text-[10px] leading-relaxed text-[#D0E4FE]">
                   {leafletSnippet}
                 </pre>
-              </div>
+              </details>
             </div>
 
             {/* 3. Deep Link & Portal WebGIS URL Config */}
@@ -341,15 +344,15 @@ fetch('${geojsonApiUrl}')
                     </button>
                   </div>
                 </div>
-                <div className="border-t border-[#D0E4FE] pt-2">
-                  <span className="font-sans font-bold text-[#334DAF]">
-                    • Perintah Sinkronisasi & Build Lokal (Folder android/ sudah terpasang):
-                  </span>
-                  <pre className="mt-1 overflow-x-auto rounded-lg bg-[#091F5C] p-2 text-[10px] text-[#D0E4FE]">
+                <details className="border-t border-[#D0E4FE] pt-2">
+                  <summary className="cursor-pointer font-sans font-bold text-[#334DAF]">
+                    • Catatan Teknis Developer (Build Ulang APK dari Source)
+                  </summary>
+                  <pre className="mt-1.5 overflow-x-auto rounded-lg bg-[#091F5C] p-2 text-[10px] text-[#D0E4FE]">
 {`npm run mobile:sync
 npm run mobile:open`}
                   </pre>
-                </div>
+                </details>
               </div>
             </div>
 
