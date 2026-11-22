@@ -2,6 +2,17 @@ import { Capacitor } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 
+/**
+ * Mengembalikan true jika dialog berbagi dibatalkan oleh pengguna sendiri
+ * sehingga aplikasi tidak menampilkan notifikasi error palsu.
+ */
+export function isShareCancelledError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  if (err.name === 'AbortError') return true;
+  const msg = err.message.toLowerCase();
+  return msg.includes('cancel') || msg.includes('abort') || msg.includes('dismissed');
+}
+
 function uint8ArrayToBase64(bytes: Uint8Array): string {
   let binary = '';
   const chunkSize = 0x8000;
@@ -21,7 +32,7 @@ export async function saveOrShareExportFile(options: {
   mimeType: string;
   data: string | Uint8Array;
   dialogTitle: string;
-}): Promise<'shared' | 'downloaded'> {
+}): Promise<'shared' | 'downloaded' | 'cancelled'> {
   const { filename, mimeType, data, dialogTitle } = options;
 
   if (Capacitor.isNativePlatform()) {
@@ -36,13 +47,20 @@ export async function saveOrShareExportFile(options: {
       directory: Directory.Cache,
     });
 
-    await Share.share({
-      title: filename,
-      text: `${dialogTitle} — AIRLOG Desa Kalikayen`,
-      url: written.uri,
-      dialogTitle,
-    });
-    return 'shared';
+    try {
+      await Share.share({
+        title: filename,
+        text: `${dialogTitle} — AIRLOG Desa Kalikayen`,
+        url: written.uri,
+        dialogTitle,
+      });
+      return 'shared';
+    } catch (err) {
+      if (isShareCancelledError(err)) {
+        return 'cancelled';
+      }
+      throw err;
+    }
   }
 
   const blobPart: BlobPart =

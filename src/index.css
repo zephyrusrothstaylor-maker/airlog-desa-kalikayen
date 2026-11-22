@@ -10,6 +10,7 @@
   }
 }
 
+/* Custom Leaflet container styling for mobile sheet overlay */
 .leaflet-container {
   font-family: inherit;
   z-index: 10;
@@ -18,4 +19,16 @@
 .custom-water-pin {
   background: transparent;
   border: none;
+}
+
+.pt-safe-header {
+  padding-top: max(1.1rem, var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+}
+
+.top-safe-floating {
+  top: max(0.85rem, var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+}
+
+.pb-safe-modal {
+  padding-bottom: max(1.25rem, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
 }

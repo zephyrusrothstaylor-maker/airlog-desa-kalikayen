@@ -12,7 +12,7 @@ export async function exportInventoryToExcel(
   facilities: WaterFacility[],
   dusunList: Dusun[],
   villageName = 'Desa'
-): Promise<'shared' | 'downloaded'> {
+): Promise<'shared' | 'downloaded' | 'cancelled'> {
   const XLSX = await import('xlsx');
 
   // Sheet 1: Rekapitulasi Per Dusun

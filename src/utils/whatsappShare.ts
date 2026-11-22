@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
+import { isShareCancelledError } from './fileSave';
 import {
   FACILITY_CATEGORY_LABELS,
   PHYSICAL_CONDITION_LABELS,
@@ -95,14 +96,21 @@ export function buildVillageRecapText(facilities: WaterFacility[], dusunList: Du
 export async function shareTextReport(
   title: string,
   text: string
-): Promise<'shared' | 'copied'> {
+): Promise<'shared' | 'copied' | 'cancelled'> {
   if (Capacitor.isNativePlatform()) {
-    await Share.share({
-      title,
-      text,
-      dialogTitle: title,
-    });
-    return 'shared';
+    try {
+      await Share.share({
+        title,
+        text,
+        dialogTitle: title,
+      });
+      return 'shared';
+    } catch (err) {
+      if (isShareCancelledError(err)) {
+        return 'cancelled';
+      }
+      throw err;
+    }
   }
 
   if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {

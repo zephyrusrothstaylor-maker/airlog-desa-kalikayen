@@ -90,7 +90,7 @@ export function buildGeoJsonFeatureCollection(
 export async function exportFacilitiesToGeoJson(
   facilities: WaterFacility[],
   dusunList: Dusun[]
-): Promise<'shared' | 'downloaded'> {
+): Promise<'shared' | 'downloaded' | 'cancelled'> {
   const geojson = buildGeoJsonFeatureCollection(facilities, dusunList);
   const dateStamp = new Date().toISOString().slice(0, 10);
   const filename = `Layer_AIRLOG_Desa_Kalikayen_${dateStamp}.geojson`;
