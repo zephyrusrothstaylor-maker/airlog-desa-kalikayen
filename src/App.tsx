@@ -52,6 +52,7 @@ interface BeforeInstallPromptEvent extends Event {
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [listConditionFilter, setListConditionFilter] = useState<string>('all');
+  const [listDusunFilter, setListDusunFilter] = useState<string>('all');
 
   const [dusunList, setDusunList] = useState<Dusun[]>([]);
   const [facilities, setFacilities] = useState<WaterFacility[]>([]);
@@ -186,11 +187,20 @@ export default function App() {
 
   const stats = computeSummaryStats(facilities);
 
-  const handleNavigateTab = (tab: ActiveTab, filterCondition?: string) => {
+  const handleNavigateTab = (
+    tab: ActiveTab,
+    filterCondition?: string,
+    filterDusun?: string
+  ) => {
     if (filterCondition) {
       setListConditionFilter(filterCondition);
     } else if (tab === 'list') {
       setListConditionFilter('all');
+    }
+    if (filterDusun) {
+      setListDusunFilter(filterDusun);
+    } else if (tab === 'list') {
+      setListDusunFilter('all');
     }
     setActiveTab(tab);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -250,6 +260,7 @@ export default function App() {
         `Laporan ${facility.code} - ${facility.name}`,
         buildFacilityReportText(facility)
       );
+      if (result === 'cancelled') return;
       if (result === 'copied') {
         showToast('Ringkasan laporan titik air disalin! Siap ditempel ke Grup WhatsApp.');
       }
@@ -264,6 +275,7 @@ export default function App() {
         'Rekap Kondisi Air Desa Kalikayen',
         buildVillageRecapText(facilities, dusunList)
       );
+      if (result === 'cancelled') return;
       if (result === 'copied') {
         showToast('Rekap 5 Dusun disalin! Siap dikirim ke Grup WhatsApp Desa.');
       }
@@ -285,6 +297,7 @@ export default function App() {
         dusunList,
         'Desa_Kalikayen_Ungaran_Timur'
       );
+      if (result === 'cancelled') return;
       showToast(
         result === 'shared'
           ? 'Laporan Excel (.xlsx) siap disimpan atau dibagikan.'
@@ -298,6 +311,7 @@ export default function App() {
   const handleExportGeoJson = async () => {
     try {
       const result = await exportFacilitiesToGeoJson(facilities, dusunList);
+      if (result === 'cancelled') return;
       showToast(
         result === 'shared'
           ? 'Layer GeoJSON (.geojson) siap disimpan atau dibagikan.'
@@ -364,7 +378,7 @@ export default function App() {
       {toastMessage && (
         <div
           role="status"
-          className="fixed left-1/2 top-[max(1rem,env(safe-area-inset-top))] z-50 flex max-w-[92vw] -translate-x-1/2 items-center gap-2 rounded-full bg-[#091F5C] px-4 py-2.5 text-xs font-bold text-white shadow-float"
+          className="top-safe-floating fixed left-1/2 z-50 flex max-w-[92vw] -translate-x-1/2 items-center gap-2 rounded-full bg-[#091F5C] px-4 py-2.5 text-xs font-bold text-white shadow-float"
         >
           <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
           <span className="truncate">{toastMessage}</span>
@@ -410,10 +424,11 @@ export default function App() {
 
       {activeTab === 'list' && (
         <FacilityListView
-          key={listConditionFilter}
+          key={`${listConditionFilter}-${listDusunFilter}`}
           facilities={facilities}
           dusunList={dusunList}
           initialConditionFilter={listConditionFilter}
+          initialDusunFilter={listDusunFilter}
           onOpenUpdateModal={(facility) => handleOpenUpdateModal(facility)}
           onOpenEditModal={handleOpenEditModal}
           onOpenAddModal={handleOpenAddNewModal}
@@ -436,6 +451,7 @@ export default function App() {
           onExportGeoJson={() => void handleExportGeoJson()}
           onSyncData={() => void handleSyncData()}
           onShareVillageRecap={() => void handleShareVillageRecap()}
+          onInspectDusunFacilities={(dusunId) => handleNavigateTab('list', 'all', dusunId)}
           onUpdateDusun={handleUpdateDusun}
           onPreviewPhoto={(photo) => setLightboxPhoto(photo)}
         />

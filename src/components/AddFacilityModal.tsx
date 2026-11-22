@@ -186,8 +186,8 @@ export function AddFacilityModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#091F5C]/60 p-0 backdrop-blur-xs sm:items-center sm:p-4">
-      <div className="max-h-[92dvh] w-full max-w-xl overflow-y-auto rounded-t-[32px] bg-[#F9FBFF] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-float sm:rounded-[32px] sm:p-6">
-        <div className="flex items-center justify-between border-b border-[#D0E4FE] pb-3.5">
+      <div className="flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-[32px] bg-[#F9FBFF] shadow-float sm:rounded-[32px]">
+        <div className="flex shrink-0 items-center justify-between border-b border-[#D0E4FE] bg-[#F9FBFF] px-5 py-4 sm:px-6">
           <div className="flex items-center gap-2.5">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#D0E4FE] text-[#091F5C]">
               {isEditMode ? <Pencil className="h-5 w-5" /> : <PlusCircle className="h-5 w-5" />}
@@ -215,7 +215,10 @@ export function AddFacilityModal({
           </button>
         </div>
 
-        <form onSubmit={(e) => void handleSubmit(e)} className="mt-4 space-y-4">
+        <form
+          onSubmit={(e) => void handleSubmit(e)}
+          className="pb-safe-modal flex-1 space-y-4 overflow-y-auto px-5 pt-4 sm:px-6"
+        >
           {/* Kode & Nama Fasilitas */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
@@ -412,7 +415,7 @@ export function AddFacilityModal({
           </div>
 
           {/* Manfaat KK, Tahun, Sumber Dana */}
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
             <div>
               <label className="mb-1 block text-xs font-bold text-[#091F5C]">KK Pemanfaat *</label>
               <input
@@ -433,7 +436,7 @@ export function AddFacilityModal({
                 className="w-full rounded-2xl border border-[#D0E4FE] bg-white px-3 py-2 text-xs text-[#091F5C]"
               />
             </div>
-            <div>
+            <div className="col-span-2 sm:col-span-1">
               <label className="mb-1 block text-xs font-bold text-[#091F5C]">Sumber Dana</label>
               <input
                 type="text"

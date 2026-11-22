@@ -186,8 +186,8 @@ export function ConditionModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#091F5C]/60 p-0 backdrop-blur-xs sm:items-center sm:p-4">
-      <div className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-[32px] bg-[#F9FBFF] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-float sm:rounded-[32px] sm:p-6">
-        <div className="flex items-center justify-between border-b border-[#D0E4FE] pb-3.5">
+      <div className="flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[32px] bg-[#F9FBFF] shadow-float sm:rounded-[32px]">
+        <div className="flex shrink-0 items-center justify-between border-b border-[#D0E4FE] bg-[#F9FBFF] px-5 py-4 sm:px-6">
           <div className="flex items-center gap-2.5">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#D0E4FE] text-[#091F5C]">
               <ClipboardCheck className="h-5 w-5" />
@@ -211,7 +211,10 @@ export function ConditionModal({
           </button>
         </div>
 
-        <form onSubmit={(e) => void handleSubmit(e)} className="mt-4 space-y-4">
+        <form
+          onSubmit={(e) => void handleSubmit(e)}
+          className="pb-safe-modal flex-1 space-y-4 overflow-y-auto px-5 pt-4 sm:px-6"
+        >
           {/* Pilih Titik Air */}
           <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
