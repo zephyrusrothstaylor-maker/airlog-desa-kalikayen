@@ -31,38 +31,42 @@ const CONDITION_COLORS: Record<string, string> = {
   kering: '#64748B',
 };
 
-interface ApiRequest {
-  method?: string;
-  query?: Record<string, string | string[] | undefined>;
+const WATER_CLARITY_LABELS: Record<string, string> = {
+  jernih: 'Jernih (Baik)',
+  keruh: 'Agak Keruh / Berwarna',
+  berbau_berasa: 'Berbau / Berasa',
+};
+
+const SEASONAL_AVAILABILITY_LABELS: Record<string, string> = {
+  sepanjang_tahun: 'Tersedia Sepanjang Tahun',
+  musim_hujan_saja: 'Hanya Saat Musim Hujan',
+};
+
+const CORS_HEADERS: Record<string, string> = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+function readServerEnv(name: string): string | undefined {
+  return typeof process !== 'undefined' ? process.env[name] : undefined;
 }
 
-interface ApiResponse {
-  setHeader: (name: string, value: string) => void;
-  status: (code: number) => {
-    json: (body: unknown) => void;
-    end: () => void;
-  };
+export function OPTIONS(): Response {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
 
-export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
-  // Enable CORS so WebGIS Desa Kalikayen (GitHub Pages / Leaflet) can fetch this layer directly
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Content-Type', 'application/geo+json; charset=utf-8');
-  res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=60');
-
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-
+export async function GET(request: Request): Promise<Response> {
   const supabaseUrl =
-    process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || DEFAULT_SUPABASE_URL;
+    readServerEnv('VITE_SUPABASE_URL') || readServerEnv('SUPABASE_URL') || DEFAULT_SUPABASE_URL;
   const supabaseKey =
-    process.env.VITE_SUPABASE_ANON_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
+    readServerEnv('VITE_SUPABASE_ANON_KEY') ||
+    readServerEnv('SUPABASE_ANON_KEY') ||
     DEFAULT_SUPABASE_ANON_KEY;
+
+  const { searchParams } = new URL(request.url);
+  const dusunFilter = searchParams.get('dusun')?.trim() || '';
+  const conditionFilter = searchParams.get('condition')?.trim() || '';
 
   try {
     const supabase = createClient(supabaseUrl, supabaseKey, {
@@ -75,21 +79,44 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
     ]);
 
     if (error) {
-      res.status(500).json({ error: error.message });
-      return;
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json; charset=utf-8' },
+      });
     }
 
-    const dusunMap = new Map(
-      (dusunData ?? []).map((d: { id: string; name: string }) => [d.id, d.name])
-    );
+    const dusunRows = (dusunData ?? []) as Array<{ id: string; code: string; name: string }>;
+    const dusunMap = new Map(dusunRows.map((d) => [d.id, d.name]));
+    const dusunCodeMap = new Map(dusunRows.map((d) => [d.id, d.code]));
 
-    const features = (facilityData ?? []).map((item: Record<string, unknown>) => {
+    const filteredRows = (facilityData ?? []).filter((item: Record<string, unknown>) => {
+      if (dusunFilter) {
+        const dId = String(item.dusun_id ?? '');
+        const dCode = dusunCodeMap.get(dId) ?? '';
+        const dName = dusunMap.get(dId) ?? '';
+        const q = dusunFilter.toLowerCase();
+        if (dId.toLowerCase() !== q && dCode.toLowerCase() !== q && dName.toLowerCase() !== q) {
+          return false;
+        }
+      }
+      if (conditionFilter && String(item.condition ?? '') !== conditionFilter) {
+        return false;
+      }
+      return true;
+    });
+
+    const features = filteredRows.map((item: Record<string, unknown>) => {
       const condition = String(item.condition ?? 'berfungsi_baik');
       const category = String(item.category ?? 'sumur_bor');
+      const waterClarity = String(item.water_clarity ?? 'jernih');
+      const seasonalAvailability = String(item.seasonal_availability ?? 'sepanjang_tahun');
       const code = String(item.code ?? '');
       const lng = Number(item.longitude ?? 110.4669);
       const lat = Number(item.latitude ?? -7.0892);
-      const elev = item.elevation_m !== null && item.elevation_m !== undefined ? Number(item.elevation_m) : null;
+      const elev =
+        item.elevation_m !== null && item.elevation_m !== undefined
+          ? Number(item.elevation_m)
+          : null;
 
       return {
         type: 'Feature',
@@ -112,8 +139,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
           kondisi_kode: condition,
           kondisi_fisik: CONDITION_LABELS[condition] ?? condition,
           warna_simbol: CONDITION_COLORS[condition] ?? '#334DAF',
-          kualitas_air: item.water_clarity ?? 'jernih',
-          ketersediaan_musiman: item.seasonal_availability ?? 'sepanjang_tahun',
+          kualitas_air: WATER_CLARITY_LABELS[waterClarity] ?? waterClarity,
+          ketersediaan_musiman:
+            SEASONAL_AVAILABILITY_LABELS[seasonalAvailability] ?? seasonalAvailability,
           catatan_kerusakan: item.condition_notes ?? '-',
           jumlah_kk_pemanfaat: Number(item.beneficiary_kk ?? 0),
           elevasi_mdpl: elev,
@@ -149,9 +177,19 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
       features,
     };
 
-    res.status(200).json(geojson);
+    return new Response(JSON.stringify(geojson), {
+      status: 200,
+      headers: {
+        ...CORS_HEADERS,
+        'Content-Type': 'application/geo+json; charset=utf-8',
+        'Cache-Control': 's-maxage=15, stale-while-revalidate=60',
+      },
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
-    res.status(500).json({ error: message });
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json; charset=utf-8' },
+    });
   }
 }

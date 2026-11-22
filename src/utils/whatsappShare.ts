@@ -117,8 +117,11 @@ export async function shareTextReport(
     try {
       await navigator.share({ title, text });
       return 'shared';
-    } catch {
-      // Lanjutkan ke penyalinan clipboard jika dialog dibatalkan atau ditolak browser
+    } catch (err) {
+      if (isShareCancelledError(err)) {
+        return 'cancelled';
+      }
+      // Lanjutkan ke penyalinan clipboard jika navigator.share tidak didukung/ditolak konteks browser
     }
   }
 

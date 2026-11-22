@@ -36,7 +36,10 @@ export function WebGisIntegrationModal({
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const appOrigin =
-    typeof window !== 'undefined' && window.location.origin.startsWith('http')
+    !isNativeApp &&
+    typeof window !== 'undefined' &&
+    window.location.origin.startsWith('https://') &&
+    !window.location.origin.includes('localhost')
       ? window.location.origin
       : 'https://si-air-kalikayen.vercel.app';
 

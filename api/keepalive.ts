@@ -15,9 +15,17 @@ export interface KeepAliveResponse {
   dusunCount?: number;
 }
 
-export default async function handler(): Promise<Response> {
-  const supabaseUrl = process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-  const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
+function readServerEnv(name: string): string | undefined {
+  return typeof process !== 'undefined' ? process.env[name] : undefined;
+}
+
+export async function GET(): Promise<Response> {
+  const supabaseUrl =
+    readServerEnv('VITE_SUPABASE_URL') || readServerEnv('SUPABASE_URL') || DEFAULT_SUPABASE_URL;
+  const supabaseKey =
+    readServerEnv('VITE_SUPABASE_ANON_KEY') ||
+    readServerEnv('SUPABASE_ANON_KEY') ||
+    DEFAULT_SUPABASE_ANON_KEY;
   const checkedAt = new Date().toISOString();
 
   if (!supabaseUrl || !supabaseKey) {
