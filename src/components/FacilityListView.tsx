@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowUpDown,
   ClipboardCheck,
@@ -79,6 +79,15 @@ export function FacilityListView({
   const [sortBy, setSortBy] = useState<SortOption>('code');
   const [pendingDeleteFacility, setPendingDeleteFacility] = useState<WaterFacility | null>(null);
 
+  useEffect(() => {
+    if (!pendingDeleteFacility) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPendingDeleteFacility(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [pendingDeleteFacility]);
+
   const filteredFacilities = useMemo(() => {
     const filtered = facilities.filter((item) => {
       if (selectedDusun !== 'all' && item.dusun_id !== selectedDusun) {
@@ -136,8 +145,8 @@ export function FacilityListView({
 
   return (
     <div className="min-h-screen bg-[#F9FBFF] pb-36">
-      {/* Top Search & Filter Bar (Reference 1 Middle Screen + Reference 2 Header) */}
-      <header className="pt-safe-header sticky top-0 z-20 border-b border-[#D0E4FE] bg-[#F9FBFF]/95 px-4 pb-4 backdrop-blur-md sm:px-8">
+      {/* Top Search & Filter Bar (mengalir alami agar tidak menutupi kartu pada layar kecil) */}
+      <header className="pt-safe-header border-b border-[#D0E4FE] bg-white px-4 pb-4 sm:px-8">
         <div className="mx-auto max-w-5xl space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>

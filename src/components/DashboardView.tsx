@@ -187,7 +187,13 @@ export function DashboardView({
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/15 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-sm sm:px-3 sm:py-1.5 sm:text-[11px]">
+              <button
+                type="button"
+                onClick={onSyncData}
+                disabled={isSyncing}
+                title="Ketuk untuk menyegarkan data Cloud"
+                className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/15 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-sm transition hover:bg-white/25 disabled:opacity-70 sm:px-3 sm:py-1.5 sm:text-[11px]"
+              >
                 <span
                   className={`h-2 w-2 rounded-full ${
                     isCloudLive ? 'bg-emerald-400' : 'bg-amber-400'
@@ -197,7 +203,12 @@ export function DashboardView({
                   {isCloudLive ? 'Cloud Aktif • ' : 'Mode Offline • '}
                 </span>
                 Pemdes Kalikayen
-              </span>
+                {!isNativeApp && (
+                  <RefreshCw
+                    className={`h-3 w-3 text-[#D0E4FE] ${isSyncing ? 'animate-spin' : ''}`}
+                  />
+                )}
+              </button>
             </div>
           </div>
 

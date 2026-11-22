@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import {
   ArrowRight,
   Building2,
@@ -57,6 +57,15 @@ export function DusunAnalyticsView({
   const [totalKk, setTotalKk] = useState('');
   const [isSavingDusun, setIsSavingDusun] = useState(false);
   const [dusunError, setDusunError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!editingDusun) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setEditingDusun(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [editingDusun]);
 
   const openEditDusun = (dusun: Dusun) => {
     setEditingDusun(dusun);

@@ -11,6 +11,7 @@ import { FacilityListView } from './components/FacilityListView';
 import { MapExplorerView } from './components/MapExplorerView';
 import { PhotoLightboxModal } from './components/PhotoLightboxModal';
 import { WebGisIntegrationModal } from './components/WebGisIntegrationModal';
+import { SEED_DUSUN } from './data/seedData';
 import { isSupabaseConfigured } from './lib/supabase';
 import {
   computeSummaryStats,
@@ -54,15 +55,16 @@ export default function App() {
   const [listConditionFilter, setListConditionFilter] = useState<string>('all');
   const [listDusunFilter, setListDusunFilter] = useState<string>('all');
 
-  const [dusunList, setDusunList] = useState<Dusun[]>([]);
+  const [dusunList, setDusunList] = useState<Dusun[]>(SEED_DUSUN);
   const [facilities, setFacilities] = useState<WaterFacility[]>([]);
   const [conditionLogs, setConditionLogs] = useState<FacilityConditionLog[]>([]);
   const [selectedMapFacility, setSelectedMapFacility] = useState<WaterFacility | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [connectionMode, setConnectionMode] = useState<DataConnectionMode>(
-    isSupabaseConfigured ? 'cloud' : 'offline'
-  );
+  const [connectionMode, setConnectionMode] = useState<DataConnectionMode>(() => {
+    if (!isSupabaseConfigured) return 'offline';
+    return typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : 'cloud';
+  });
   const isNativeApp = Capacitor.isNativePlatform();
 
   const [conditionModalFacility, setConditionModalFacility] = useState<WaterFacility | null>(null);
@@ -133,24 +135,76 @@ export default function App() {
             ? facilityData.find((f) => f.code.toLowerCase() === codeParam.toLowerCase())
             : facilityData[0];
           if (matched) {
+            setSelectedMapFacility(matched);
             setConditionModalFacility(matched);
             setIsConditionModalOpen(true);
           } else if (facilityData.length === 0) {
+            if (codeParam) {
+              showToast(`Titik "${codeParam}" belum terdaftar. Silakan tambah titik air pertama.`);
+            }
             setIsAddModalOpen(true);
           } else {
+            if (codeParam) {
+              showToast(`Kode "${codeParam}" tidak ditemukan. Menampilkan titik air pertama.`);
+            }
             setConditionModalFacility(facilityData[0] ?? null);
             setIsConditionModalOpen(true);
+          }
+          try {
+            window.history.replaceState({}, '', window.location.pathname);
+          } catch {
+            // Abaikan error history API
           }
         }
       }
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     void loadAllData();
   }, [loadAllData]);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      void loadAllData().then(() => {
+        if (getDataConnectionMode() === 'cloud') {
+          showToast('Koneksi internet kembali aktif. Data tersinkron ke Cloud.');
+        }
+      });
+    };
+    const handleOffline = () => {
+      setConnectionMode('offline');
+      showToast('Koneksi internet terputus. Menampilkan cache lokal perangkat.');
+    };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [loadAllData, showToast]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (lightboxPhoto) {
+        setLightboxPhoto(null);
+      } else if (isConditionModalOpen) {
+        setIsConditionModalOpen(false);
+      } else if (isAddModalOpen) {
+        setIsAddModalOpen(false);
+        setEditingFacility(null);
+      } else if (isWebGisModalOpen) {
+        setIsWebGisModalOpen(false);
+      } else if (isInstallGuideOpen) {
+        setIsInstallGuideOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [lightboxPhoto, isConditionModalOpen, isAddModalOpen, isWebGisModalOpen, isInstallGuideOpen]);
 
   useEffect(() => {
     if (!isNativeApp) return;
@@ -353,13 +407,17 @@ export default function App() {
 
   const handleInstallApp = async () => {
     if (deferredInstallPrompt) {
-      await deferredInstallPrompt.prompt();
-      const choice = await deferredInstallPrompt.userChoice;
-      if (choice.outcome === 'accepted') {
+      try {
+        await deferredInstallPrompt.prompt();
+        const choice = await deferredInstallPrompt.userChoice;
+        if (choice.outcome === 'accepted') {
+          setDeferredInstallPrompt(null);
+          showToast('Aplikasi AIRLOG Kalikayen berhasil di-install!');
+        }
+        return;
+      } catch {
         setDeferredInstallPrompt(null);
-        showToast('Aplikasi AIRLOG Kalikayen berhasil di-install!');
       }
-      return;
     }
     setIsInstallGuideOpen(true);
   };
@@ -378,10 +436,10 @@ export default function App() {
       {toastMessage && (
         <div
           role="status"
-          className="top-safe-floating fixed left-1/2 z-50 flex max-w-[92vw] -translate-x-1/2 items-center gap-2 rounded-full bg-[#091F5C] px-4 py-2.5 text-xs font-bold text-white shadow-float"
+          className="top-safe-floating fixed left-1/2 z-[60] flex max-w-[92vw] -translate-x-1/2 items-center gap-2 rounded-2xl bg-[#091F5C] px-4 py-2.5 text-xs font-bold leading-snug text-white shadow-float"
         >
           <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
-          <span className="truncate">{toastMessage}</span>
+          <span>{toastMessage}</span>
         </div>
       )}
 
