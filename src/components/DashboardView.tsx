@@ -157,9 +157,9 @@ export function DashboardView({
   const isCloudLive = isSupabaseReady && connectionMode === 'cloud';
 
   return (
-    <div className="min-h-screen bg-[#091F5C] pb-28">
+    <div className="min-h-screen bg-[#091F5C]">
       {/* Hero Header */}
-      <header className="relative overflow-hidden bg-gradient-to-br from-[#091F5C] via-[#183182] to-[#334DAF] px-5 pb-10 pt-[max(1.25rem,env(safe-area-inset-top))] text-white sm:px-8">
+      <header className="pt-safe-header relative overflow-hidden bg-gradient-to-br from-[#091F5C] via-[#183182] to-[#334DAF] px-5 pb-10 text-white sm:px-8">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rotate-12 rounded-[40px] bg-[#334DAF]/40"
@@ -177,7 +177,7 @@ export function DashboardView({
                 <Droplets className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <span className="block truncate text-[10px] font-bold uppercase tracking-wider text-[#D0E4FE]">
+                <span className="block text-[9.5px] font-bold uppercase tracking-wide text-[#D0E4FE] sm:text-[10px]">
                   Desa Kalikayen • Ungaran Timur
                 </span>
                 <span className="block truncate text-sm font-extrabold text-white">
@@ -187,7 +187,7 @@ export function DashboardView({
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/15 px-3 py-1.5 text-[11px] font-semibold text-white backdrop-blur-sm">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/15 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-sm sm:px-3 sm:py-1.5 sm:text-[11px]">
                 <span
                   className={`h-2 w-2 rounded-full ${
                     isCloudLive ? 'bg-emerald-400' : 'bg-amber-400'
@@ -261,7 +261,7 @@ export function DashboardView({
       </header>
 
       {/* Main Rounded Sheet Surface (#F9FBFF matching Reference 1 & 3) */}
-      <section className="relative z-10 -mt-6 rounded-t-[32px] bg-[#F9FBFF] px-4 pt-6 pb-10 shadow-float sm:px-8">
+      <section className="relative z-10 -mt-6 rounded-t-[32px] bg-[#F9FBFF] px-4 pt-6 pb-36 shadow-float sm:px-8">
         <div className="mx-auto max-w-5xl space-y-8">
           {/* Section 1: CareSync-inspired 2x2 Health/Status Overview Grid */}
           <div>

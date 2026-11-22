@@ -272,7 +272,7 @@ export function MapExplorerView({
   return (
     <div className="relative flex h-[calc(100dvh)] flex-col overflow-hidden bg-[#E8F2FE]">
       {/* Reference 1 Right Screen: Floating Top Pill Header */}
-      <div className="pointer-events-none absolute inset-x-0 top-[max(1rem,env(safe-area-inset-top))] z-20 mx-auto max-w-3xl px-4">
+      <div className="top-safe-floating pointer-events-none absolute inset-x-0 z-20 mx-auto max-w-3xl px-4">
         <div className="pointer-events-auto flex items-center justify-between gap-2 rounded-2xl bg-[#334DAF] px-4 py-3 text-white shadow-float">
           <div className="flex min-w-0 items-center gap-2.5">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#D0E4FE] text-[#091F5C]">
@@ -401,7 +401,7 @@ export function MapExplorerView({
 
       {/* Reference 1 Right Screen: Layered Rounded Bottom Sheet */}
       {!activeFacility ? (
-        <div className="relative z-20 mx-auto w-full max-w-xl px-4 pb-28">
+        <div className="relative z-20 mx-auto w-full max-w-xl px-4 pb-32">
           <div className="rounded-[26px] border border-[#D0E4FE] bg-[#F9FBFF] p-5 text-center shadow-float">
             <h2 className="text-sm font-extrabold text-[#091F5C]">
               Belum Ada Titik Air di Peta Desa Kalikayen (0 Lokasi)
@@ -420,7 +420,7 @@ export function MapExplorerView({
           </div>
         </div>
       ) : (
-        <div className="relative z-20 mx-auto w-full max-w-3xl px-2 pb-28 sm:px-4">
+        <div className="relative z-20 mx-auto w-full max-w-3xl px-2 pb-32 sm:px-4">
           {/* Upper Accent Layer (Matches Reference 1's colored top tab of bottom sheet) */}
           <div className="rounded-t-[28px] bg-[#334DAF] px-5 pt-3 pb-6 text-white shadow-float">
             <div className="flex items-center justify-between">

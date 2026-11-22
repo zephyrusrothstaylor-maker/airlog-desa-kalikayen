@@ -32,6 +32,7 @@ interface DusunAnalyticsViewProps {
   onExportGeoJson: () => void;
   onSyncData: () => void;
   onShareVillageRecap: () => void;
+  onInspectDusunFacilities?: (dusunId: string) => void;
   onUpdateDusun: (input: UpdateDusunInput) => Promise<void>;
   onPreviewPhoto: (photo: PhotoPreviewData) => void;
 }
@@ -45,6 +46,7 @@ export function DusunAnalyticsView({
   onExportGeoJson,
   onSyncData,
   onShareVillageRecap,
+  onInspectDusunFacilities,
   onUpdateDusun,
   onPreviewPhoto,
 }: DusunAnalyticsViewProps) {
@@ -85,8 +87,8 @@ export function DusunAnalyticsView({
   };
 
   return (
-    <div className="min-h-screen bg-[#F9FBFF] pb-28">
-      <header className="border-b border-[#D0E4FE] bg-white px-4 pb-5 pt-[max(1.25rem,env(safe-area-inset-top))] sm:px-8">
+    <div className="min-h-screen bg-[#F9FBFF] pb-36">
+      <header className="pt-safe-header border-b border-[#D0E4FE] bg-white px-4 pb-5 sm:px-8">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-lg font-extrabold text-[#091F5C] sm:text-xl">
@@ -177,7 +179,18 @@ export function DusunAnalyticsView({
                       </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-end gap-1.5">
+                    <div className="flex shrink-0 items-center justify-end gap-1.5">
+                      {onInspectDusunFacilities && (
+                        <button
+                          type="button"
+                          onClick={() => onInspectDusunFacilities(dusun.id)}
+                          title={`Lihat titik air di ${dusun.name}`}
+                          className="inline-flex items-center gap-1 rounded-full bg-[#D0E4FE] px-3 py-1.5 text-xs font-bold text-[#091F5C] transition hover:bg-[#334DAF] hover:text-white"
+                        >
+                          Daftar ({items.length})
+                          <ArrowRight className="h-3 w-3" />
+                        </button>
+                      )}
                       {kasunWaUrl && (
                         <a
                           href={kasunWaUrl}
@@ -340,7 +353,7 @@ export function DusunAnalyticsView({
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#091F5C]/60 p-0 backdrop-blur-xs sm:items-center sm:p-4">
           <form
             onSubmit={(e) => void handleSaveDusun(e)}
-            className="w-full max-w-md rounded-t-[32px] bg-[#F9FBFF] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-float sm:rounded-[32px] sm:p-6"
+            className="pb-safe-modal w-full max-w-md rounded-t-[32px] bg-[#F9FBFF] p-5 shadow-float sm:rounded-[32px] sm:p-6"
           >
             <div className="flex items-center justify-between border-b border-[#D0E4FE] pb-3">
               <div>

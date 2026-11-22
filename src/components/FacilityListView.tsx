@@ -45,6 +45,7 @@ interface FacilityListViewProps {
   facilities: WaterFacility[];
   dusunList: Dusun[];
   initialConditionFilter?: string;
+  initialDusunFilter?: string;
   onOpenUpdateModal: (facility: WaterFacility) => void;
   onOpenEditModal: (facility: WaterFacility) => void;
   onOpenAddModal: () => void;
@@ -60,6 +61,7 @@ export function FacilityListView({
   facilities,
   dusunList,
   initialConditionFilter = 'all',
+  initialDusunFilter = 'all',
   onOpenUpdateModal,
   onOpenEditModal,
   onOpenAddModal,
@@ -71,7 +73,7 @@ export function FacilityListView({
   onPreviewPhoto,
 }: FacilityListViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedDusun, setSelectedDusun] = useState<string>('all');
+  const [selectedDusun, setSelectedDusun] = useState<string>(initialDusunFilter);
   const [selectedCondition, setSelectedCondition] = useState<string>(initialConditionFilter);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [sortBy, setSortBy] = useState<SortOption>('code');
@@ -133,9 +135,9 @@ export function FacilityListView({
   };
 
   return (
-    <div className="min-h-screen bg-[#F9FBFF] pb-28">
+    <div className="min-h-screen bg-[#F9FBFF] pb-36">
       {/* Top Search & Filter Bar (Reference 1 Middle Screen + Reference 2 Header) */}
-      <header className="sticky top-0 z-20 border-b border-[#D0E4FE] bg-[#F9FBFF]/95 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-md sm:px-8">
+      <header className="pt-safe-header sticky top-0 z-20 border-b border-[#D0E4FE] bg-[#F9FBFF]/95 px-4 pb-4 backdrop-blur-md sm:px-8">
         <div className="mx-auto max-w-5xl space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -298,7 +300,24 @@ export function FacilityListView({
 
       {/* Stacked Horizontal Facility Cards (Reference 1 Middle + Reference 2 List) */}
       <div className="mx-auto max-w-5xl px-4 pt-5 sm:px-8">
-        {filteredFacilities.length === 0 ? (
+        {facilities.length === 0 ? (
+          <div className="rounded-3xl border border-dashed border-[#7096D1] bg-white p-8 text-center shadow-card">
+            <p className="text-base font-extrabold text-[#091F5C]">
+              Belum Ada Data Titik Air Terdaftar (0 Titik)
+            </p>
+            <p className="mx-auto mt-1 max-w-md text-xs text-[#7096D1]">
+              Data fasilitas dan sumber air Desa Kalikayen masih kosong. Ketuk tombol di bawah untuk mulai mencatat titik air pertama beserta koordinat GPS lapangan.
+            </p>
+            <button
+              type="button"
+              onClick={onOpenAddModal}
+              className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-[#334DAF] px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#091F5C]"
+            >
+              <Plus className="h-4 w-4" />
+              Tambah Titik Air Pertama
+            </button>
+          </div>
+        ) : filteredFacilities.length === 0 ? (
           <div className="rounded-3xl border border-[#D0E4FE] bg-white p-10 text-center shadow-card">
             <p className="text-base font-bold text-[#091F5C]">
               Tidak ada titik air yang cocok dengan filter pencarian.
