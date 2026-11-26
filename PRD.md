@@ -52,8 +52,9 @@ Aplikasi **AIRLOG** hadir supaya pendataan tidak berhenti sebagai arsip sekali s
 | **FR-02** | **Tambah Titik & GPS** | Mengambil koordinat `latitude`, `longitude`, dan `elevation_m` otomatis lewat `Geolocation API` (`enableHighAccuracy: true`) atau input manual, kode titik otomatis (`AIR-001`), serta 8 kategori sarana dan 5 dusun resmi. | `src/components/AddFacilityModal.tsx` |
 | **FR-03** | **Cek Fisik & Kompresi Foto** | Input status fisik (4 status), kejernihan air (3 status), ketersediaan musiman (2 status), catatan kerusakan, serta kompresi foto kamera HP otomatis ke **WebP** (`<= 1280 px`, target `<= 150 KB`) dengan riwayat tercatat via *trigger* `trg_log_facility_condition`. | `src/components/ConditionModal.tsx` |
 | **FR-04** | **Peta Air Interaktif** | Peta Leaflet dengan dua *basemap* gratis (**OpenStreetMap** dan **Esri World Imagery**), penanda warna sesuai kondisi, kartu info lokasi, serta tautan rute Google Maps. | `src/components/MapExplorerView.tsx` |
-| **FR-05** | **Daftar, Filter, & Rekap Dusun** | Pencarian nama/kode/lokasi dan filter per Dusun, Jenis Sumber, serta Kondisi Fisik; dilengkapi tab Rekap Dusun dan ekspor Excel `.xlsx` 2 *sheet* via SheetJS. | `src/components/FacilityListView.tsx` |
-| **FR-06** | **Integrasi WebGIS & `.apk`** | Ekspor berkas `.geojson` (WGS84 / `CRS84`), *endpoint* live `/api/geojson` ber-CORS `*`, *deep-link* `/?action=lapor&code=...`, serta build native Android `id.kalikayen.airlog` (`AIRLOG-Desa-Kalikayen.apk`, ~4,3 MB) via Capacitor. | `src/components/WebGisIntegrationModal.tsx` |
+| **FR-05** | **Daftar, Filter, & Rekap Dusun** | Pencarian nama/kode/lokasi dan filter per Dusun, Jenis Sumber, serta Kondisi Fisik; dilengkapi tab Rekap Dusun dan ekspor Excel `.xlsx` 2 *sheet* via SheetJS. Hapus titik air dibatasi khusus role `admin`. | `src/components/FacilityListView.tsx` |
+| **FR-06** | **Integrasi WebGIS & `.apk`** | Ekspor berkas `.geojson` (WGS84 / `CRS84`), *endpoint* live `/api/geojson` ber-CORS `*` (sensor kontak publik), *deep-link* `/?action=lapor&code=...`, serta build native Android `id.kalikayen.airlog` (`AIRLOG-Desa-Kalikayen.apk`, v1.5) via Capacitor. | `src/components/WebGisIntegrationModal.tsx` |
+| **FR-07** | **Autentikasi Pemdes & Gateway Warga** | Warga melihat peta/rekap & mengirim laporan QR tanpa login lewat Supabase Edge Function `airlog-public-portal` (kontak WA disensor & jeda anti-spam 60 detik); Perangkat Desa wajib login `Supabase Auth` untuk kelola data induk (`authenticated`) serta sinkronisasi antrean offline + peninjauan konflik (`offlineQueue`). | `src/services/authService.ts`, `supabase/functions/airlog-public-portal/index.ts` |
 
 ---
 
@@ -75,8 +76,9 @@ Aplikasi **AIRLOG** hadir supaya pendataan tidak berhenti sebagai arsip sekali s
 ## 6. Kebutuhan Non-Fungsional & Ketahanan Lapangan
 
 - **Navigasi Satu Tangan:** Bilah bawah 5 menu (*Beranda*, *Peta Air*, *Cek Fisik*, *Daftar*, *Rekap*) memudahkan survei sambil memegang ponsel.
-- **Cadangan Lokal:** Saat koneksi ke Supabase sedang terputus di area minim sinyal, `inventoryService.ts` memakai `localStorage` agar data sementara tidak hilang dan tampilan tetap responsif.
-- **Uji Coba:** Siap diuji di laptop dan Android bersama perangkat desa.
+- **Ketahanan Offline Lapangan:** Saat koneksi ke Supabase terputus di area blank spot, `offlineQueue.ts` menjaga antrean mutasi lokal secara atomik, meng-cascade konflik pembuatan induk, membekukan antrean saat sesi kedaluwarsa, serta menampilkan banner konflik permanen yang dapat ditinjau petugas.
+- **Privasi & Keamanan Data Desa:** Role `anon` dicabut penuh dari tabel dan view PostgreSQL (`REVOKE ALL`) serta bucket APK `apk-releases`; akses publik berjalan aman via Edge Gateway tersensor.
+- **Uji Coba & Panduan:** Panduan operasional perangkat desa tersedia di [PANDUAN_SERAH_TERIMA_PEMDES.md](./PANDUAN_SERAH_TERIMA_PEMDES.md).
 
 ---
 
