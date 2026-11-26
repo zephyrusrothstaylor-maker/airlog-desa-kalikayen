@@ -9,22 +9,38 @@ import { DashboardView, type ActiveTab } from './components/DashboardView';
 import { DusunAnalyticsView } from './components/DusunAnalyticsView';
 import { FacilityListView } from './components/FacilityListView';
 import { MapExplorerView } from './components/MapExplorerView';
+import { PemdesAuthModal } from './components/PemdesAuthModal';
 import { PhotoLightboxModal } from './components/PhotoLightboxModal';
 import { WebGisIntegrationModal } from './components/WebGisIntegrationModal';
 import { SEED_DUSUN } from './data/seedData';
 import { isSupabaseConfigured } from './lib/supabase';
 import {
+  getCurrentPemdesSession,
+  signOutPemdes,
+  subscribePemdesAuth,
+  type PemdesSessionInfo,
+} from './services/authService';
+import {
+  clearAllSyncConflicts,
+  clearCachedInventoryData,
   computeSummaryStats,
   createFacility,
   deleteFacility,
+  dismissSyncConflictItem,
   getConditionLogs,
   getDataConnectionMode,
   getDusunList,
   getFacilities,
+  getLastWriteMode,
+  getPendingSyncCount,
+  getPublicOverviewBundle,
+  getSyncConflicts,
+  syncPendingOperations,
   updateDusunInfo,
   updateFacility,
   updateFacilityCondition,
   type DataConnectionMode,
+  type OfflineSyncConflict,
 } from './services/inventoryService';
 import type {
   CreateWaterFacilityInput,
@@ -61,6 +77,10 @@ export default function App() {
   const [selectedMapFacility, setSelectedMapFacility] = useState<WaterFacility | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [pendingSyncCount, setPendingSyncCount] = useState<number>(() => getPendingSyncCount());
+  const [syncConflicts, setSyncConflicts] = useState<OfflineSyncConflict[]>(() =>
+    getSyncConflicts()
+  );
   const [connectionMode, setConnectionMode] = useState<DataConnectionMode>(() => {
     if (!isSupabaseConfigured) return 'offline';
     return typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : 'cloud';
@@ -74,6 +94,9 @@ export default function App() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isInstallGuideOpen, setIsInstallGuideOpen] = useState(false);
   const [isWebGisModalOpen, setIsWebGisModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authActionHint, setAuthActionHint] = useState<string | null>(null);
+  const [pemdesSession, setPemdesSession] = useState<PemdesSessionInfo | null>(null);
   const [webGisPortalUrl, setWebGisPortalUrl] = useState<string>(() => {
     try {
       return window.localStorage.getItem(WEBGIS_PORTAL_STORAGE_KEY) ?? '';
@@ -110,15 +133,46 @@ export default function App() {
 
   const loadAllData = useCallback(async () => {
     try {
-      const [dusunData, facilityData, logsData] = await Promise.all([
-        getDusunList(),
-        getFacilities(),
-        getConditionLogs(),
-      ]);
+      const sessionInfo = await getCurrentPemdesSession();
+      setPemdesSession(sessionInfo);
+
+      let dusunData: Dusun[];
+      let facilityData: WaterFacility[];
+      let logsData: FacilityConditionLog[];
+
+      if (sessionInfo) {
+        const syncResult = await syncPendingOperations();
+        const [d, f, l] = await Promise.all([
+          getDusunList(),
+          getFacilities(),
+          getConditionLogs(),
+        ]);
+        dusunData = d;
+        facilityData = f;
+        logsData = l;
+
+        if (syncResult.abortedByAuth) {
+          showToast(
+            `${syncResult.remainingCount} antrean offline menunggu login ulang Pemdes sebelum disinkronkan.`
+          );
+        } else if (syncResult.errors.length > 0) {
+          showToast(`Sebagian antrean sync gagal: ${syncResult.errors[0]}`);
+        } else if (syncResult.syncedCount > 0) {
+          showToast(`${syncResult.syncedCount} perubahan offline berhasil disinkronkan ke Cloud.`);
+        }
+      } else {
+        const publicBundle = await getPublicOverviewBundle();
+        dusunData = publicBundle.dusun;
+        facilityData = publicBundle.facilities;
+        logsData = publicBundle.conditionLogs;
+      }
+
       setDusunList(dusunData);
       setFacilities(facilityData);
       setConditionLogs(logsData);
       setConnectionMode(getDataConnectionMode());
+      setPendingSyncCount(getPendingSyncCount());
+      setSyncConflicts(getSyncConflicts());
       setSelectedMapFacility((prev) => {
         if (prev) {
           return facilityData.find((f) => f.id === prev.id) ?? facilityData[0] ?? null;
@@ -142,7 +196,12 @@ export default function App() {
             if (codeParam) {
               showToast(`Titik "${codeParam}" belum terdaftar. Silakan tambah titik air pertama.`);
             }
-            setIsAddModalOpen(true);
+            if (sessionInfo) {
+              setIsAddModalOpen(true);
+            } else {
+              setAuthActionHint('Belum ada titik air terdaftar. Login akun Pemdes untuk menambah titik baru.');
+              setIsAuthModalOpen(true);
+            }
           } else {
             if (codeParam) {
               showToast(`Kode "${codeParam}" tidak ditemukan. Menampilkan titik air pertama.`);
@@ -167,9 +226,17 @@ export default function App() {
   }, [loadAllData]);
 
   useEffect(() => {
+    const unsubscribe = subscribePemdesAuth((nextSession) => {
+      setPemdesSession(nextSession);
+    });
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
     const handleOnline = () => {
+      const hadPending = getPendingSyncCount() > 0;
       void loadAllData().then(() => {
-        if (getDataConnectionMode() === 'cloud') {
+        if (!hadPending && getDataConnectionMode() === 'cloud') {
           showToast('Koneksi internet kembali aktif. Data tersinkron ke Cloud.');
         }
       });
@@ -191,6 +258,9 @@ export default function App() {
       if (e.key !== 'Escape') return;
       if (lightboxPhoto) {
         setLightboxPhoto(null);
+      } else if (isAuthModalOpen) {
+        setIsAuthModalOpen(false);
+        setAuthActionHint(null);
       } else if (isConditionModalOpen) {
         setIsConditionModalOpen(false);
       } else if (isAddModalOpen) {
@@ -204,13 +274,23 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [lightboxPhoto, isConditionModalOpen, isAddModalOpen, isWebGisModalOpen, isInstallGuideOpen]);
+  }, [
+    lightboxPhoto,
+    isAuthModalOpen,
+    isConditionModalOpen,
+    isAddModalOpen,
+    isWebGisModalOpen,
+    isInstallGuideOpen,
+  ]);
 
   useEffect(() => {
     if (!isNativeApp) return;
     const listenerPromise = CapApp.addListener('backButton', () => {
       if (lightboxPhoto) {
         setLightboxPhoto(null);
+      } else if (isAuthModalOpen) {
+        setIsAuthModalOpen(false);
+        setAuthActionHint(null);
       } else if (isConditionModalOpen) {
         setIsConditionModalOpen(false);
       } else if (isAddModalOpen) {
@@ -232,6 +312,7 @@ export default function App() {
   }, [
     isNativeApp,
     lightboxPhoto,
+    isAuthModalOpen,
     isConditionModalOpen,
     isAddModalOpen,
     isWebGisModalOpen,
@@ -260,6 +341,35 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const openPemdesAuthModal = (hint?: string) => {
+    setAuthActionHint(hint ?? null);
+    setIsAuthModalOpen(true);
+  };
+
+  const requirePemdesAuth = (actionLabel: string): boolean => {
+    if (pemdesSession) return true;
+    openPemdesAuthModal(`Login akun Perangkat Desa (Pemdes) diperlukan untuk ${actionLabel}.`);
+    return false;
+  };
+
+  const handlePemdesSignedIn = (sessionInfo: PemdesSessionInfo) => {
+    setPemdesSession(sessionInfo);
+    showToast(
+      `Selamat datang, ${sessionInfo.displayName} (${sessionInfo.role === 'admin' ? 'Admin Desa' : 'Perangkat Desa'}).`
+    );
+    void loadAllData();
+  };
+
+  const handleSignOut = async () => {
+    await signOutPemdes();
+    setPemdesSession(null);
+    setIsAddModalOpen(false);
+    setEditingFacility(null);
+    clearCachedInventoryData();
+    await loadAllData();
+    showToast('Berhasil keluar dari akun Pemdes (beralih ke mode Warga publik).');
+  };
+
   const handleOpenUpdateModal = (facility?: WaterFacility) => {
     const target = facility ?? selectedMapFacility ?? facilities[0] ?? null;
     setConditionModalFacility(target);
@@ -271,41 +381,86 @@ export default function App() {
     setActiveTab('map');
   };
 
+  const formatWriteNotice = (
+    writeMode: 'cloud' | 'offline-queued',
+    cloudText: string,
+    offlineText: string
+  ) => {
+    const pending = getPendingSyncCount();
+    setPendingSyncCount(pending);
+    return writeMode === 'offline-queued'
+      ? `${offlineText} (${pending} antrean sync).`
+      : cloudText;
+  };
+
   const handleSaveCondition = async (input: UpdateConditionInput) => {
     const updated = await updateFacilityCondition(input);
+    const writeMode = getLastWriteMode();
     await loadAllData();
     setSelectedMapFacility(updated);
-    showToast(`Kondisi fisik "${updated.name}" berhasil diperbarui.`);
+    showToast(
+      formatWriteNotice(
+        writeMode,
+        pemdesSession
+          ? `Kondisi fisik "${updated.name}" berhasil diperbarui.`
+          : `Laporan warga untuk "${updated.name}" berhasil diteruskan ke Pemdes.`,
+        `Kondisi "${updated.name}" disimpan offline`
+      )
+    );
   };
 
   const handleOpenAddNewModal = () => {
+    if (!requirePemdesAuth('menambah titik air baru')) return;
     setEditingFacility(null);
     setIsAddModalOpen(true);
   };
 
   const handleOpenEditModal = (facility: WaterFacility) => {
+    if (!requirePemdesAuth('mengedit data master titik air')) return;
     setEditingFacility(facility);
     setIsAddModalOpen(true);
   };
 
   const handleCreateFacility = async (input: CreateWaterFacilityInput) => {
     const created = await createFacility(input);
+    const writeMode = getLastWriteMode();
     await loadAllData();
     setSelectedMapFacility(created);
-    showToast(`Titik air baru "${created.name}" (${created.code}) berhasil ditambahkan.`);
+    showToast(
+      formatWriteNotice(
+        writeMode,
+        `Titik air baru "${created.name}" (${created.code}) berhasil ditambahkan.`,
+        `Titik air "${created.name}" (${created.code}) disimpan offline`
+      )
+    );
   };
 
   const handleUpdateFacility = async (facilityId: string, input: CreateWaterFacilityInput) => {
     const updated = await updateFacility(facilityId, input);
+    const writeMode = getLastWriteMode();
     await loadAllData();
     setSelectedMapFacility(updated);
-    showToast(`Data titik "${updated.name}" (${updated.code}) berhasil diperbarui.`);
+    showToast(
+      formatWriteNotice(
+        writeMode,
+        `Data titik "${updated.name}" (${updated.code}) berhasil diperbarui.`,
+        `Perubahan "${updated.name}" disimpan offline`
+      )
+    );
   };
 
   const handleUpdateDusun = async (input: UpdateDusunInput) => {
+    if (!requirePemdesAuth('mengubah data Dusun & Kasun')) return;
     const updated = await updateDusunInfo(input);
+    const writeMode = getLastWriteMode();
     await loadAllData();
-    showToast(`Data wilayah ${updated.name} berhasil diperbarui.`);
+    showToast(
+      formatWriteNotice(
+        writeMode,
+        `Data wilayah ${updated.name} berhasil diperbarui.`,
+        `Data ${updated.name} disimpan offline`
+      )
+    );
   };
 
   const handleShareFacilityReport = async (facility: WaterFacility) => {
@@ -339,9 +494,22 @@ export default function App() {
   };
 
   const handleDeleteFacility = async (facilityId: string) => {
-    await deleteFacility(facilityId);
-    await loadAllData();
-    showToast('Titik fasilitas air telah dihapus.');
+    if (!pemdesSession || pemdesSession.role !== 'admin') {
+      openPemdesAuthModal('Penghapusan titik air hanya diizinkan untuk akun Admin Desa.');
+      return;
+    }
+    try {
+      await deleteFacility(facilityId);
+      const notice = formatWriteNotice(
+        getLastWriteMode(),
+        'Titik fasilitas air telah dihapus.',
+        'Penghapusan titik air diantrekan offline'
+      );
+      await loadAllData();
+      showToast(notice);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal menghapus titik fasilitas air.');
+    }
   };
 
   const handleExportExcel = async () => {
@@ -394,12 +562,19 @@ export default function App() {
   const handleSyncData = async () => {
     setIsSyncing(true);
     try {
+      const hadPending = getPendingSyncCount() > 0;
       await loadAllData();
-      showToast(
-        getDataConnectionMode() === 'cloud'
-          ? 'Data terbaru dari Supabase Cloud berhasil disinkronkan.'
-          : 'Tidak ada koneksi internet. Menampilkan cache lokal perangkat.'
-      );
+      if (!hadPending) {
+        showToast(
+          getDataConnectionMode() === 'cloud'
+            ? 'Data terbaru dari Supabase Cloud berhasil disinkronkan.'
+            : 'Tidak ada koneksi internet. Menampilkan cache lokal perangkat.'
+        );
+      } else if (getPendingSyncCount() > 0) {
+        showToast(
+          `Masih offline: ${getPendingSyncCount()} perubahan tersimpan di antrean perangkat.`
+        );
+      }
     } finally {
       setIsSyncing(false);
     }
@@ -451,6 +626,9 @@ export default function App() {
           isSupabaseReady={isSupabaseConfigured}
           isLoading={isLoading}
           isSyncing={isSyncing}
+          pendingSyncCount={pendingSyncCount}
+          syncConflicts={syncConflicts}
+          pemdesSession={pemdesSession}
           connectionMode={connectionMode}
           isNativeApp={isNativeApp}
           webGisPortalUrl={webGisPortalUrl}
@@ -463,6 +641,13 @@ export default function App() {
           onOpenWebGisModal={() => setIsWebGisModalOpen(true)}
           onInstallApp={() => void handleInstallApp()}
           onSyncData={() => void handleSyncData()}
+          onOpenAuthModal={(hint) => openPemdesAuthModal(hint)}
+          onSignOut={() => void handleSignOut()}
+          onDismissSyncConflict={(id) => setSyncConflicts(dismissSyncConflictItem(id))}
+          onClearSyncConflicts={() => {
+            clearAllSyncConflicts();
+            setSyncConflicts([]);
+          }}
           onPreviewPhoto={(photo) => setLightboxPhoto(photo)}
         />
       )}
@@ -487,6 +672,7 @@ export default function App() {
           dusunList={dusunList}
           initialConditionFilter={listConditionFilter}
           initialDusunFilter={listDusunFilter}
+          isAdmin={pemdesSession?.role === 'admin'}
           onOpenUpdateModal={(facility) => handleOpenUpdateModal(facility)}
           onOpenEditModal={handleOpenEditModal}
           onOpenAddModal={handleOpenAddNewModal}
@@ -505,12 +691,15 @@ export default function App() {
           facilities={facilities}
           conditionLogs={conditionLogs}
           isSyncing={isSyncing}
+          pendingSyncCount={pendingSyncCount}
+          isPemdesAuthenticated={Boolean(pemdesSession)}
           onExportExcel={() => void handleExportExcel()}
           onExportGeoJson={() => void handleExportGeoJson()}
           onSyncData={() => void handleSyncData()}
           onShareVillageRecap={() => void handleShareVillageRecap()}
           onInspectDusunFacilities={(dusunId) => handleNavigateTab('list', 'all', dusunId)}
           onUpdateDusun={handleUpdateDusun}
+          onRequirePemdesLogin={(hint) => openPemdesAuthModal(hint)}
           onPreviewPhoto={(photo) => setLightboxPhoto(photo)}
         />
       )}
@@ -525,6 +714,7 @@ export default function App() {
         <ConditionModal
           facility={conditionModalFacility}
           facilities={facilities}
+          isPemdesAuthenticated={Boolean(pemdesSession)}
           onSelectFacility={(f) => setConditionModalFacility(f)}
           onClose={() => setIsConditionModalOpen(false)}
           onOpenAddModal={handleOpenAddNewModal}
@@ -560,6 +750,17 @@ export default function App() {
 
       {lightboxPhoto && (
         <PhotoLightboxModal photo={lightboxPhoto} onClose={() => setLightboxPhoto(null)} />
+      )}
+
+      {isAuthModalOpen && (
+        <PemdesAuthModal
+          actionHint={authActionHint}
+          onClose={() => {
+            setIsAuthModalOpen(false);
+            setAuthActionHint(null);
+          }}
+          onSignedIn={handlePemdesSignedIn}
+        />
       )}
 
       {isInstallGuideOpen && (

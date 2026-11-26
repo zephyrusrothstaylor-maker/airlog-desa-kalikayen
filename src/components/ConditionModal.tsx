@@ -25,6 +25,7 @@ import { PhotoUploadControl } from './PhotoUploadControl';
 interface ConditionModalProps {
   facility: WaterFacility | null;
   facilities: WaterFacility[];
+  isPemdesAuthenticated?: boolean;
   onSelectFacility: (facility: WaterFacility) => void;
   onClose: () => void;
   onOpenAddModal: () => void;
@@ -34,6 +35,7 @@ interface ConditionModalProps {
 export function ConditionModal({
   facility,
   facilities,
+  isPemdesAuthenticated = false,
   onSelectFacility,
   onClose,
   onOpenAddModal,
@@ -52,7 +54,13 @@ export function ConditionModal({
     activeFacility?.seasonal_availability ?? 'sepanjang_tahun'
   );
   const [notes, setNotes] = useState<string>(activeFacility?.condition_notes ?? '');
-  const [inspectorName, setInspectorName] = useState<string>(getSavedInspectorName);
+  const [inspectorName, setInspectorName] = useState<string>(() => {
+    const saved = getSavedInspectorName();
+    if (!isPemdesAuthenticated && saved === 'Perangkat Desa Kalikayen') {
+      return '';
+    }
+    return saved;
+  });
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(
     activeFacility?.photo_url ?? null
   );
@@ -104,7 +112,7 @@ export function ConditionModal({
               }}
               className="rounded-full bg-[#334DAF] px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#091F5C]"
             >
-              + Tambah Titik Air Pertama
+              {isPemdesAuthenticated ? '+ Tambah Titik Air Pertama' : 'Login Pemdes untuk Tambah Titik'}
             </button>
           </div>
         </div>
@@ -129,7 +137,9 @@ export function ConditionModal({
     setIsSubmitting(true);
     setErrorMsg(null);
     try {
-      saveInspectorName(inspectorName);
+      if (isPemdesAuthenticated) {
+        saveInspectorName(inspectorName);
+      }
       await onSaveCondition({
         facility_id: activeFacility.id,
         condition,
@@ -215,6 +225,13 @@ export function ConditionModal({
           onSubmit={(e) => void handleSubmit(e)}
           className="pb-safe-modal flex-1 space-y-4 overflow-y-auto px-5 pt-4 sm:px-6"
         >
+          {!isPemdesAuthenticated && (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 px-3.5 py-2.5 text-[11px] leading-relaxed text-emerald-900">
+              <strong>Mode Laporan Warga (Tanpa Login):</strong> Laporan diteruskan aman ke server
+              desa tanpa akses langsung ke database Pemdes.
+            </div>
+          )}
+
           {/* Pilih Titik Air */}
           <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -341,14 +358,21 @@ export function ConditionModal({
             onBusyChange={setIsCompressing}
           />
 
-          {/* Nama Pemeriksa */}
+          {/* Nama Pemeriksa / Pelapor */}
           <div>
             <label className="mb-1 block text-xs font-bold text-[#091F5C]">
-              Nama Pemeriksa (Perangkat Desa / Pengelola) *
+              {isPemdesAuthenticated
+                ? 'Nama Pemeriksa (Perangkat Desa / Pengelola) *'
+                : 'Nama Pelapor / Warga *'}
             </label>
             <input
               type="text"
               required
+              placeholder={
+                isPemdesAuthenticated
+                  ? 'Contoh: Budi (Kasun Watukebo)'
+                  : 'Contoh: Pak Ahmad (Warga RT 02)'
+              }
               value={inspectorName}
               onChange={(e) => setInspectorName(e.target.value)}
               className="w-full rounded-2xl border border-[#D0E4FE] bg-white px-3.5 py-2.5 text-xs font-semibold text-[#091F5C] focus:border-[#334DAF] focus:outline-none"

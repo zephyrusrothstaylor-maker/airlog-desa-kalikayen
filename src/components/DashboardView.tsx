@@ -9,14 +9,19 @@ import {
   FileSpreadsheet,
   Layers,
   ListFilter,
+  Lock,
+  LogIn,
+  LogOut,
   MapPin,
   Navigation,
   PlusCircle,
   RefreshCw,
   ShieldCheck,
   Users,
+  X,
 } from 'lucide-react';
-import type { DataConnectionMode } from '../services/inventoryService';
+import type { PemdesSessionInfo } from '../services/authService';
+import type { DataConnectionMode, OfflineSyncConflict } from '../services/inventoryService';
 import type {
   Dusun,
   InventorySummaryStats,
@@ -34,6 +39,9 @@ interface DashboardViewProps {
   isSupabaseReady: boolean;
   isLoading: boolean;
   isSyncing: boolean;
+  pendingSyncCount?: number;
+  syncConflicts?: OfflineSyncConflict[];
+  pemdesSession?: PemdesSessionInfo | null;
   connectionMode: DataConnectionMode;
   isNativeApp: boolean;
   webGisPortalUrl: string;
@@ -46,6 +54,10 @@ interface DashboardViewProps {
   onOpenWebGisModal: () => void;
   onInstallApp: () => void;
   onSyncData: () => void;
+  onOpenAuthModal?: (hint?: string) => void;
+  onSignOut?: () => void;
+  onDismissSyncConflict?: (conflictId: string) => void;
+  onClearSyncConflicts?: () => void;
   onPreviewPhoto: (photo: PhotoPreviewData) => void;
 }
 
@@ -56,6 +68,9 @@ export function DashboardView({
   isSupabaseReady,
   isLoading,
   isSyncing,
+  pendingSyncCount = 0,
+  syncConflicts = [],
+  pemdesSession = null,
   connectionMode,
   isNativeApp,
   webGisPortalUrl,
@@ -68,6 +83,10 @@ export function DashboardView({
   onOpenWebGisModal,
   onInstallApp,
   onSyncData,
+  onOpenAuthModal,
+  onSignOut,
+  onDismissSyncConflict,
+  onClearSyncConflicts,
   onPreviewPhoto,
 }: DashboardViewProps) {
   const priorityFacilities = facilities.filter((f) => f.condition !== 'berfungsi_baik');
@@ -128,8 +147,8 @@ export function DashboardView({
     {
       id: 'add',
       title: 'Tambah Titik',
-      subtitle: 'Input + GPS HP',
-      icon: PlusCircle,
+      subtitle: pemdesSession ? 'Input + GPS HP' : 'Khusus Akun Pemdes',
+      icon: pemdesSession ? PlusCircle : Lock,
       accentBg: 'bg-[#D0E4FE]',
       iconColor: 'text-[#334DAF]',
       onClick: onOpenAddModal,
@@ -186,7 +205,7 @@ export function DashboardView({
               </div>
             </div>
 
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
               <button
                 type="button"
                 onClick={onSyncData}
@@ -202,13 +221,50 @@ export function DashboardView({
                 <span className="hidden sm:inline">
                   {isCloudLive ? 'Cloud Aktif • ' : 'Mode Offline • '}
                 </span>
-                Pemdes Kalikayen
+                {pemdesSession ? 'Database' : 'Mode Warga'}
+                {pendingSyncCount > 0 && (
+                  <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[9px] font-extrabold text-[#091F5C]">
+                    {pendingSyncCount} Antrean
+                  </span>
+                )}
                 {!isNativeApp && (
                   <RefreshCw
                     className={`h-3 w-3 text-[#D0E4FE] ${isSyncing ? 'animate-spin' : ''}`}
                   />
                 )}
               </button>
+
+              {pemdesSession ? (
+                <div className="inline-flex items-center gap-1 rounded-full border border-emerald-300/40 bg-emerald-500/20 px-2.5 py-1 text-[10px] font-bold text-white sm:text-[11px]">
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
+                  <span className="hidden sm:inline" title={pemdesSession.email}>
+                    {pemdesSession.role === 'admin' ? 'Admin' : 'Pemdes'}
+                  </span>
+                  {onSignOut && (
+                    <button
+                      type="button"
+                      onClick={onSignOut}
+                      title={`Keluar (${pemdesSession.email})`}
+                      aria-label="Keluar akun Pemdes"
+                      className="ml-0.5 inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-extrabold text-white transition hover:bg-rose-500/80"
+                    >
+                      <LogOut className="h-3 w-3" />
+                      Keluar
+                    </button>
+                  )}
+                </div>
+              ) : (
+                onOpenAuthModal && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenAuthModal()}
+                    className="inline-flex items-center gap-1 rounded-full bg-[#D0E4FE] px-2.5 py-1 text-[10px] font-extrabold text-[#091F5C] shadow-xs transition hover:bg-white sm:px-3 sm:py-1.5 sm:text-[11px]"
+                  >
+                    <LogIn className="h-3 w-3 text-[#334DAF]" />
+                    Masuk Pemdes
+                  </button>
+                )
+              )}
             </div>
           </div>
 
@@ -222,6 +278,7 @@ export function DashboardView({
                 Geotagging Sarana Air Bersih • Update: {formattedLastUpdate} • {dusunList.length}{' '}
                 Wilayah Dusun
                 {!isCloudLive && !isLoading ? ' • Cache Offline' : ''}
+                {pendingSyncCount > 0 ? ` • ${pendingSyncCount} Menunggu Sync` : ''}
               </p>
             </div>
 
@@ -254,7 +311,11 @@ export function DashboardView({
                   <RefreshCw
                     className={`h-3.5 w-3.5 text-[#D0E4FE] ${isSyncing ? 'animate-spin' : ''}`}
                   />
-                  {isSyncing ? 'Memuat...' : 'Sinkron'}
+                  {isSyncing
+                    ? 'Memuat...'
+                    : pendingSyncCount > 0
+                      ? `Sinkron (${pendingSyncCount})`
+                      : 'Sinkron'}
                 </button>
               ) : (
                 <button
@@ -274,6 +335,57 @@ export function DashboardView({
       {/* Main Rounded Sheet Surface (#F9FBFF matching Reference 1 & 3) */}
       <section className="relative z-10 -mt-6 rounded-t-[32px] bg-[#F9FBFF] px-4 pt-6 pb-36 shadow-float sm:px-8">
         <div className="mx-auto max-w-5xl space-y-8">
+          {syncConflicts.length > 0 && (
+            <div
+              role="alert"
+              className="rounded-3xl border border-rose-200 bg-rose-50/95 p-4 text-rose-900 shadow-xs"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600" />
+                  <h2 className="text-xs font-extrabold uppercase tracking-wide text-rose-900">
+                    {syncConflicts.length} Konflik Sinkronisasi Offline
+                  </h2>
+                </div>
+                {onClearSyncConflicts && (
+                  <button
+                    type="button"
+                    onClick={onClearSyncConflicts}
+                    className="rounded-full bg-white px-3 py-1 text-[11px] font-bold text-rose-700 ring-1 ring-rose-200 transition hover:bg-rose-100"
+                  >
+                    Tutup Semua
+                  </button>
+                )}
+              </div>
+              <p className="mt-1 text-[11px] text-rose-700">
+                Item berikut ditolak oleh server saat sinkronisasi (misalnya kode plang duplikat) sehingga tidak menimpa data server:
+              </p>
+              <ul className="mt-2.5 space-y-1.5">
+                {syncConflicts.map((conflict) => (
+                  <li
+                    key={conflict.id}
+                    className="flex items-start justify-between gap-2 rounded-2xl bg-white/90 px-3 py-2 text-xs"
+                  >
+                    <div className="min-w-0">
+                      <span className="font-bold text-rose-900">{conflict.label}:</span>{' '}
+                      <span className="text-rose-700">{conflict.reason}</span>
+                    </div>
+                    {onDismissSyncConflict && (
+                      <button
+                        type="button"
+                        onClick={() => onDismissSyncConflict(conflict.id)}
+                        aria-label={`Tutup konflik ${conflict.label}`}
+                        className="shrink-0 rounded-full p-1 text-rose-500 hover:bg-rose-100 hover:text-rose-800"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Section 1: CareSync-inspired 2x2 Health/Status Overview Grid */}
           <div>
             <div className="mb-3 flex items-center justify-between">

@@ -28,12 +28,15 @@ interface DusunAnalyticsViewProps {
   facilities: WaterFacility[];
   conditionLogs: FacilityConditionLog[];
   isSyncing: boolean;
+  pendingSyncCount?: number;
+  isPemdesAuthenticated?: boolean;
   onExportExcel: () => void;
   onExportGeoJson: () => void;
   onSyncData: () => void;
   onShareVillageRecap: () => void;
   onInspectDusunFacilities?: (dusunId: string) => void;
   onUpdateDusun: (input: UpdateDusunInput) => Promise<void>;
+  onRequirePemdesLogin?: (hint: string) => void;
   onPreviewPhoto: (photo: PhotoPreviewData) => void;
 }
 
@@ -42,12 +45,15 @@ export function DusunAnalyticsView({
   facilities,
   conditionLogs,
   isSyncing,
+  pendingSyncCount = 0,
+  isPemdesAuthenticated = false,
   onExportExcel,
   onExportGeoJson,
   onSyncData,
   onShareVillageRecap,
   onInspectDusunFacilities,
   onUpdateDusun,
+  onRequirePemdesLogin,
   onPreviewPhoto,
 }: DusunAnalyticsViewProps) {
   const facilityMap = new Map(facilities.map((f) => [f.id, f]));
@@ -68,6 +74,10 @@ export function DusunAnalyticsView({
   }, [editingDusun]);
 
   const openEditDusun = (dusun: Dusun) => {
+    if (!isPemdesAuthenticated) {
+      onRequirePemdesLogin?.('Login akun Pemdes diperlukan untuk mengatur data Kepala Dusun & KK.');
+      return;
+    }
     setEditingDusun(dusun);
     setHeadName(dusun.head_name ?? '');
     setHeadPhone(dusun.head_phone ?? '');
@@ -116,7 +126,11 @@ export function DusunAnalyticsView({
               className="inline-flex items-center gap-1.5 rounded-full border border-[#D0E4FE] bg-[#E8F2FE] px-3.5 py-2 text-xs font-bold text-[#091F5C] transition hover:bg-[#D0E4FE] disabled:opacity-60"
             >
               <RefreshCw className={`h-3.5 w-3.5 text-[#334DAF] ${isSyncing ? 'animate-spin' : ''}`} />
-              {isSyncing ? 'Memuat...' : 'Sinkron Data'}
+              {isSyncing
+                ? 'Memuat...'
+                : pendingSyncCount > 0
+                  ? `Sinkron (${pendingSyncCount})`
+                  : 'Sinkron Data'}
             </button>
             <button
               type="button"
