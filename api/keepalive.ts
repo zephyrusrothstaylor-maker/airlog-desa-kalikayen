@@ -5,8 +5,8 @@ declare const process: {
 };
 
 const DEFAULT_SUPABASE_URL = 'https://uwntlfrttdwyucmtsdpq.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3bnRsZnJ0dGR3eXVjbXRzZHBxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQzNDEwODcsImV4cCI6MjEwOTkxNzA4N30.PlYUsFXHXkSuS4Tk06u9RGdLR4LdDrKc2IszK3ogoug';
+const SUPABASE_KEEPALIVE_GATEWAY =
+  'https://uwntlfrttdwyucmtsdpq.supabase.co/functions/v1/airlog-public-portal?action=keepalive';
 
 export interface KeepAliveResponse {
   ok: boolean;
@@ -22,45 +22,50 @@ function readServerEnv(name: string): string | undefined {
 export async function GET(): Promise<Response> {
   const supabaseUrl =
     readServerEnv('VITE_SUPABASE_URL') || readServerEnv('SUPABASE_URL') || DEFAULT_SUPABASE_URL;
-  const supabaseKey =
-    readServerEnv('VITE_SUPABASE_ANON_KEY') ||
-    readServerEnv('SUPABASE_ANON_KEY') ||
-    DEFAULT_SUPABASE_ANON_KEY;
+  const serviceKey =
+    readServerEnv('SUPABASE_SERVICE_ROLE_KEY') || readServerEnv('SUPABASE_SECRET_KEY');
   const checkedAt = new Date().toISOString();
 
-  if (!supabaseUrl || !supabaseKey) {
+  if (serviceKey && supabaseUrl) {
+    const supabase = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { count, error } = await supabase
+      .from('dusun')
+      .select('id', { count: 'exact', head: true });
+
+    if (error) {
+      return new Response(
+        JSON.stringify({ ok: false, mode: 'supabase', checkedAt, error: error.message }),
+        { status: 500, headers: { 'content-type': 'application/json' } }
+      );
+    }
+
     const body: KeepAliveResponse = {
       ok: true,
-      mode: 'local-only',
+      mode: 'supabase',
       checkedAt,
+      dusunCount: count ?? 0,
     };
+
     return new Response(JSON.stringify(body), {
       status: 200,
       headers: { 'content-type': 'application/json' },
     });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey);
-  const { count, error } = await supabase
-    .from('dusun')
-    .select('id', { count: 'exact', head: true });
-
-  if (error) {
+  try {
+    const upstream = await fetch(SUPABASE_KEEPALIVE_GATEWAY);
+    const text = await upstream.text();
+    return new Response(text, {
+      status: upstream.status,
+      headers: { 'content-type': 'application/json' },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ ok: false, mode: 'supabase', checkedAt, error: error.message }),
-      { status: 500, headers: { 'content-type': 'application/json' } }
+      JSON.stringify({ ok: false, mode: 'supabase', checkedAt, error: message }),
+      { status: 502, headers: { 'content-type': 'application/json' } }
     );
   }
-
-  const body: KeepAliveResponse = {
-    ok: true,
-    mode: 'supabase',
-    checkedAt,
-    dusunCount: count ?? 0,
-  };
-
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { 'content-type': 'application/json' },
-  });
 }
